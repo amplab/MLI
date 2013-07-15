@@ -38,6 +38,7 @@ object MLRow {
   private val MAX_DENSITY_FOR_SPARSE_REPRESENTATION = .5
 
   def apply(row: MLValue*) = chooseRepresentation(row.toSeq)
+  def apply(row: MLVector) = chooseRepresentation(row.data.data.map(MLValue(_)).toSeq)
 
   /**
    * Choose a reasonable sparse or dense representation for @row.
@@ -64,6 +65,8 @@ object MLRow {
     // Allow subclasses to define their own builders.
     override def apply(from: MLRow) = from.newMlRowBuilder
   }
+
+  implicit def rowToVector(from: MLRow): MLVector = from.toVector
 }
 
 
@@ -84,7 +87,9 @@ class DenseMLRow(private val row: immutable.IndexedSeq[MLValue]) extends MLRow {
 
   override def newMlRowBuilder = new ArrayBuffer[MLValue]().mapResult({array => DenseMLRow.fromSeq(array.toSeq)})
 
-  override def toVector = MLVector(row.toArray)
+  lazy val vec = MLVector(row.toArray)
+
+  override implicit def toVector = vec
 
   def toDoubleArray = row.map(_.toNumber).toArray
 }
@@ -120,7 +125,8 @@ class SparseMLRow private(
 
   override def nonZeros = sparseElements.iterator
 
-  override def toVector = MLVector(iterator.toArray)
+  lazy val vec = MLVector(iterator.toArray)
+  override implicit def toVector = MLVector(iterator.toArray)
 
   //FIXME: Need to build in a sparse way.
   override def newMlRowBuilder = new ArrayBuffer[MLValue]().mapResult({array => MLRow.chooseRepresentation(array)})
@@ -133,6 +139,6 @@ object SparseMLRow {
 
   def fromNumericSeq(row: Seq[MLValue]) = {
     val nonZeros: Seq[(Int, MLValue)] = (0 until row.length).zip(row).filter(_._2.toNumber != 0)
-    new SparseMLRow(TreeMap.empty[Int, MLValue] ++ nonZeros, row.length, MLDouble(0.0))
+    new SparseMLRow(TreeMap.empty[Int, MLValue] ++ nonZeros, row.length, MLValue(0.0))
   }
 }

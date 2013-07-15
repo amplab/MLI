@@ -1,6 +1,6 @@
 package mli.ml.opt
 
-import mli.interface.{MLMatrix, MLTableLike, MLVector}
+import mli.interface._
 
 /**
  * Parameters for the Stochastic Gradient Descent optimizer.
@@ -13,10 +13,10 @@ import mli.interface.{MLMatrix, MLTableLike, MLVector}
  */
 case class StochasticGradientDescentParameters(
     learningRate: Double = 1e-2,
-    wInit: MLVector,
+    wInit: MLRow,
     maxIter: Int = 100,
     eps: Double = 1e-6,
-    grad: (MLVector, MLVector) => MLVector
+    grad: (MLRow, MLRow) => MLRow
   ) extends MLOptParameters
 
 
@@ -30,18 +30,18 @@ object StochasticGradientDescent extends MLOpt with Serializable {
    * @param params Parameters for the gradient descent algorithm.
    * @return
    */
-  def apply(data: MLTableLike[MLVector], params: StochasticGradientDescentParameters): MLVector = {
+  def apply(data: MLTable, params: StochasticGradientDescentParameters): MLRow = {
     runSGD(data, params.wInit, params.learningRate, params.grad, params.maxIter, params.eps)
   }
 
   def runSGD(
-              data: MLTableLike[MLVector],
+              data: MLTable,
               wInit: MLVector,
               learningRate: Double,
-              grad: (MLVector, MLVector) => MLVector,
+              grad: (MLRow, MLRow) => MLRow,
               maxIter: Int,
               eps: Double
-            ): MLVector = {
+            ): MLRow = {
 
     //Initialize the model weights and set data size.
     var weights = wInit
@@ -66,7 +66,7 @@ object StochasticGradientDescent extends MLOpt with Serializable {
   /**
    * Locally runs SGD on each partition of data. Sends results back to master after each pass.
    */
-  def localSGD(data: MLMatrix, weights: MLVector, lambda: Double, gradientFunction: (MLVector, MLVector) => MLVector): MLMatrix = {
+  def localSGD(data: MLMatrix, weights: MLVector, lambda: Double, gradientFunction: (MLRow, MLRow) => MLRow): MLMatrix = {
     //Set local weights.
     var loc = weights
 

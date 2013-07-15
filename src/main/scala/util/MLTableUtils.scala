@@ -7,11 +7,11 @@ object MLTableUtils {
   //TODO: Implement toNumeric
   //def toNumeric(mlt: MLTable): MLNumericTable = ???
 
-  def normalize(mlnt: MLNumericTable): (MLTableLike[MLVector], MLVector => MLVector) = {
+  def normalize(mlnt: MLTable): (MLTable, MLRow => MLRow) = {
     val mean = (mlnt.reduce(_ plus _)) over (mlnt.numRows.toDouble)
     val sd = mlnt.map(x => (x minus mean) times (x minus mean)).reduce(_ plus _)
 
-    def trans(x: MLVector): MLVector = (x minus mean) over sd
+    def trans(x: MLRow): MLRow = (x minus mean) over sd
     val res = mlnt.map(trans)
 
     (res, trans)

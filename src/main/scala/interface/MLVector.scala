@@ -11,7 +11,7 @@ trait MLVectorable {
 /**
  * A numerical vector supporting various mathematical operations efficiently.
  */
-class MLVector(protected val data: DoubleMatrix) extends IndexedSeq[Double] with Serializable {
+class MLVector(val data: DoubleMatrix) extends IndexedSeq[Double] with Serializable {
   override def toString: String = data.toString
 
   //We need this for slice syntax.
@@ -48,4 +48,5 @@ object MLVector {
 
   //Returns a zero vector of length D.
   def zeros(d: Int): MLVector = apply(new Array[Double](d))
+  implicit def vectorToRow(from: MLVector): MLRow = MLRow(from)
 }

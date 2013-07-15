@@ -1,24 +1,20 @@
 package mli.feat
 
-import mli.interface.{MLTableLike, MLNumericTable, MLTable}
+import mli.interface.MLTable
 
 /**
  * Abstract Class to Support Feature Extraction. A Feature extractor is an object that expects a table as input
  * and produces a table as output. A typical feature processing pipeline will begin with raw data and end up with
  * numeric features.
  *
- * @tparam U Input table type. (Usually MLTable or MLNumericTable)
- * @tparam T Output table type. (Usually MLNumericTable or MLTable)
  */
-trait FeatureExtractor[U ,T] {
-  def extract(in: U): T
-  def apply(in: U) = extract(in)
+abstract class FeatureExtractor {
+  /**
+   * Entry point for extraction.
+   * @param in Input table.
+   * @return Output table of extracted features.
+   */
+  def extract(in: MLTable): MLTable
+  def apply(in: MLTable) = extract(in)
 }
-
-/**
- * These classes support the most common type of feature extractors.
- */
-trait RawFeatureExtractor extends FeatureExtractor[MLTable, MLTable]
-trait RawNumericFeatureExtractor extends FeatureExtractor[MLTable, MLNumericTable]
-trait NumericFeatureExtractor extends FeatureExtractor[MLNumericTable, MLNumericTable]
 

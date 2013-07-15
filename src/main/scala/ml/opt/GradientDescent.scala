@@ -3,28 +3,28 @@ package mli.ml.opt
 import mli.interface._
 
 case class GradientDescentParameters(
-  wInit: MLVector,
-  gradient: (MLVector, MLVector) => MLVector,
+  wInit: MLRow,
+  gradient: (MLRow, MLRow) => MLRow,
   tol: Double = 1.0E-5) extends MLOptParameters
 
 object GradientDescent extends MLOpt {
-  def apply(dat: MLTableLike[MLVector],
-            params: GradientDescentParameters): MLVector = {
+  def apply(dat: MLTable,
+            params: GradientDescentParameters): MLRow = {
     gradientDescent(dat, params.wInit, params.gradient, params.tol)
   }
 
-  def gradientDescent(dat: MLTableLike[MLVector],
-                      w0: MLVector,
-                      grad: (MLVector, MLVector) => MLVector,
-                      tol: Double): MLVector = {
+  def gradientDescent(dat: MLTable,
+                      w0: MLRow,
+                      grad: (MLRow, MLRow) => MLRow,
+                      tol: Double): MLRow = {
     var wNew = w0
     var wOld = w0
 
     // Define the metric
-    def metric(a: MLVector, b: MLVector) = ((a minus b) dot (a minus b))/a.size
+    def metric(a: MLRow, b: MLRow): Double = ((a minus b) dot (a minus b))/(a.size)
 
     // Define the sum operation for gradients
-    def arraySum(a: MLVector, b: MLVector) = a plus b
+    def arraySum(a: MLRow, b: MLRow): MLRow = a plus b
 
     var iter = 1
     while(wNew == w0 || metric(wNew, wOld) > tol){

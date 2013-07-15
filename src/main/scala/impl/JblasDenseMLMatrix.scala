@@ -8,7 +8,7 @@ class DenseMLMatrix(var mat: DoubleMatrix) extends MLMatrix {
 
   def toMLRows: Iterator[MLRow] = {
     //TODO There must be better ways to do this.
-    (0 until numRows).map(r => DenseMLRow.fromSeq(mat.getRow(r).data.map(d => MLDouble(d)).toSeq)).toIterator
+    (0 until numRows).map(r => DenseMLRow.fromSeq(mat.getRow(r).data.map(d => MLValue(d)).toSeq)).toIterator
   }
 
   def toMLVectors: Iterator[MLVector] = {
