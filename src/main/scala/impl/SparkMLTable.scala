@@ -7,7 +7,7 @@ import spark.SparkContext
 import SparkContext._
 
 
-class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], val schema: Schema) extends MLTable with Serializable {
+class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], var schema: Schema) extends MLTable with Serializable {
   lazy val numCols = rdd.first.size
 
   lazy val numRows = rdd.count
@@ -28,13 +28,20 @@ class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], val schema: S
   }
 
   /**
+   * Takes a set of columns and returns their complement in the current schema. Useful for projection, sort, join, etc.
+   * @param cols
+   * @param schema
+   * @return
+   */
+  def nonCols(cols: Seq[Index], schema: Schema): Seq[Index] = schema.columns.indices.diff(cols)
+
+  /**
    * Return the join of this table and another one. Any identical elements will appear multiple
    * For now this only works to union a DenseSparkMLTable to another.
    */
   def join(other: MLTable, cols: Seq[Index]): SparkMLTable = this
 
   def join(other: SparkMLTable, cols: Seq[Index]) = {
-    def nonCols(cols: Seq[Index], schema: Schema): Seq[Index] = schema.columns.indices.diff(cols)
 
     //Parse out the key columns from each table.
     val t1 = rdd.map(row => (cols.map(row(_)), nonCols(cols, schema).map(row(_))))
@@ -43,7 +50,7 @@ class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], val schema: S
     //Join the table, combine the rows, and create a new schema.
     //val newRdd = t1.join(t2).map(k => MLRow(k._1 ++ k._2._1 ++ k._2._2))
     val newRdd = t1.join(t2).map { case (a,(b,c)) => MLRow.chooseRepresentation(a ++ b ++ c)}
-    val newSchema = schema.join(other.schema, cols)
+    lazy val newSchema = schema.join(other.schema, cols)
 
     new SparkMLTable(newRdd, newSchema)
 
@@ -57,10 +64,7 @@ class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], val schema: S
   def map(f: MLRow => MLRow): SparkMLTable = {
     val newRdd = rdd.map(f)
 
-    //Infer schema from first row.
-    lazy val newSchema = Schema(newRdd.first)
-
-    new SparkMLTable(newRdd, newSchema)
+    SparkMLTable.fromMLRowRdd(newRdd)
   }
 
 
@@ -75,7 +79,28 @@ class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], val schema: S
    */
   def reduce(f: (MLRow, MLRow) => MLRow): MLRow = rdd.reduce(f)
 
+  /**
+   *  Run a reduce on all values of the row, grouped by key.
+   */
+  def reduceBy(key: Seq[Index], f: (MLRow, MLRow) => MLRow): MLTable = {
+    //val notKey = nonCols(key, schema)
+    val newRdd = rdd.map(r => (r(key), r)).reduceByKey(f).map(_._2)
 
+    SparkMLTable.fromMLRowRdd(newRdd)
+  }
+
+  def pairToRow(p: (MLRow, MLRow)) = {
+    MLRow(p._1 ++ p._2)
+  }
+
+  /**
+   * Sort a table based on a key.
+   */
+  def sortBy(key: Seq[Index], ascending: Boolean = true): MLTable = {
+    //val notKey = nonCols(key, schema)
+    val newRdd = rdd.map(r => (r(key), r)).sortByKey(ascending).map(_._2)
+    SparkMLTable.fromMLRowRdd(newRdd)
+  }
 
   /**
    * Return a value by applying a function to all elements of this the table and then reducing them.
@@ -94,10 +119,7 @@ class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], val schema: S
       res.toMLRows
     }
 
-    val newRdd = rdd.mapPartitions(matrixMap)
-
-    //We should generate the schema dynamically.
-    new SparkMLTable(newRdd, Schema(newRdd.first))
+    SparkMLTable.fromMLRowRdd(rdd.mapPartitions(matrixMap(_)))
   }
 
 
@@ -135,8 +157,14 @@ object SparkMLTable {
 
   def apply(rdd: spark.RDD[Array[Double]]): SparkMLTable = {
     val mldRdd = rdd.map(row => MLRow.chooseRepresentation(row.map(MLValue(_))))
+    lazy val schema = Schema(mldRdd.first)
 
-    //todo, get schema
-    new SparkMLTable(mldRdd, Schema(mldRdd.first))
+    new SparkMLTable(mldRdd, schema)
+  }
+
+  def fromMLRowRdd(rdd: spark.RDD[MLRow]): SparkMLTable = {
+    lazy val schema = Schema(rdd.first)
+
+    new SparkMLTable(rdd, schema)
   }
 }

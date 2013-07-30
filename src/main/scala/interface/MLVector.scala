@@ -34,7 +34,7 @@ class MLVector(val data: DoubleMatrix) extends IndexedSeq[Double] with Serializa
   def length = data.length
   def sum: Double = data.sum
 
-  def toMatrix: MLMatrix = new DenseMLMatrix(new DoubleMatrix(data.data))
+  def toMatrix: MLMatrix = new DenseMLMatrix(new DoubleMatrix(data.data).transpose)
   def toArray = data.data
 }
 

@@ -7,9 +7,6 @@ import spark.SparkContext
 import SparkContext._
 
 
-
-
-
 /**
  * Enumerated column type. Currently supports Int, Double, String, and Empty.
  */
@@ -63,6 +60,8 @@ class Schema(val columns: Seq[ColumnSpec]) extends Serializable {
     new Schema(joincols ++ t1OtherSchema ++ t2OtherSchema)
   }
 
+  override def toString = columns.zipWithIndex.map { case (c,i) => c.name.getOrElse(i) }.mkString("\t")
+
   //Helper functions.
 
   /**
@@ -96,7 +95,7 @@ class SchemaException(val error: String) extends Exception
 trait MLTable {
   val numCols: Int
   val numRows: Long
-  val schema: Schema
+  var schema: Schema
 
   def filter(f: MLRow => Boolean): MLTable
   def union(other: MLTable): MLTable
@@ -108,15 +107,33 @@ trait MLTable {
   def flatMap(m: MLRow => TraversableOnce[MLRow]): MLTable
 
   def reduce(f: (MLRow, MLRow) => MLRow): MLRow
+  def reduceBy(keys: Seq[Index], f: (MLRow, MLRow) => MLRow): MLTable
+  def sortBy(keys: Seq[Index], ascending: Boolean=true): MLTable
   //No support for full table to Matrix just yet.
   //def toMatrix: MLMatrix
 
   //No support for iterator yet.
   //def iterator(): Iterator[MLRow]
+  def collect(): Seq[MLRow]
+  def take(n: Int): Seq[MLRow]
 
   //Concrete methods provided by the interface below.
   def project(cols: => Seq[String]): MLTable = {
     project(schema.lookup(cols))
+  }
+
+  def setSchema(newSchema: Schema) = {
+    schema = newSchema
+  }
+
+  override def toString = {
+    schema.toString + "\n" + this.take(200).mkString("\n")
+  }
+
+  def setColNames(names: Seq[String]) = {
+    //TODO: Need
+    val newcols = (0 until names.length).map(i => new ColumnSpec(Some(names(i)), schema.columns(i).kind))
+    schema = new Schema(newcols)
   }
 }
 

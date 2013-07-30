@@ -53,10 +53,9 @@ object StochasticGradientDescent extends MLOpt with Serializable {
 
     //Main loop of SGD. Calls local SGD and averages parameters. Checks for convergence after each pass.
     while(i < maxIter && diff > eps) {
-      weightsOld = weights
       weights = data.matrixBatchMap(localSGD(_, weights, learningRate, grad)).reduce(_ plus _) over n
 
-      diff = ((weights minus weightsOld) times (weights minus weightsOld)).sum
+      diff = ((weights minus weightsOld) dot (weights minus weightsOld))
       i+=1
     }
 

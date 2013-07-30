@@ -52,7 +52,7 @@ object LogisticRegressionAlgorithm extends Algorithm[LogisticRegressionParameter
 
     def gradient(row: MLRow, w: MLRow): MLRow = {
 
-      val x = MLVector(row.slice(1,data.numCols))
+      val x = MLVector(row.slice(1,row.length))
       val y = row(0).toNumber
       val g = x times (sigmoid(x dot w) - y)
       g
@@ -63,15 +63,15 @@ object LogisticRegressionAlgorithm extends Algorithm[LogisticRegressionParameter
     //Run gradient descent on the data.
     val weights = params.optimizer match {
       case "Gradient" => {
-        val optparams = opt.GradientDescentParameters(MLVector.zeros(d), gradient, params.minLossDelta)
-        opt.GradientDescent(data, optparams)
+        val optParams = opt.GradientDescentParameters(MLVector.zeros(d), gradient, params.minLossDelta)
+        opt.GradientDescent(data, optParams)
       }
       case "SGD" => {
-        val optparams = opt.StochasticGradientDescentParameters(
+        val optParams = opt.StochasticGradientDescentParameters(
           wInit = MLVector.zeros(d),
           grad = gradient,
           learningRate = params.learningRate)
-        opt.StochasticGradientDescent(data, optparams)
+        opt.StochasticGradientDescent(data, optParams)
       }
     }
 

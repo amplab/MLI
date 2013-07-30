@@ -21,7 +21,12 @@ import collection.immutable
 trait MLRow extends IndexedSeq[MLValue]
     with IndexedSeqLike[MLValue, MLRow]
     with MLVectorable
+    with Ordered[MLRow]
     with Serializable {
+
+  /** Supports indexing by a sequence of indices. */
+  def apply(inds: Seq[Int]): MLRow = MLRow(inds.map(this(_)):_*)
+
   /** An iterator through the nonzero rows ((index, value) pairs) of this row. */
   def nonZeros(): Iterator[(Int, MLValue)]
 
@@ -31,6 +36,19 @@ trait MLRow extends IndexedSeq[MLValue]
   implicit def vectorToRow(v: MLVector): MLRow = MLRow.chooseRepresentation(v)
 
   override protected[this] def newBuilder = MLRow.newBuilder
+
+  override def toString = this.mkString("\t")
+
+  /** Implements dense lexicographic ordering on an MLRow */
+  def compare(that: MLRow): Int = {
+    for ((thisOne,thatOne) <- this.zip(that)) {
+      if(thisOne != thatOne) {
+        if (thisOne > thatOne) return 1
+        else return -1
+      }
+    }
+    return 0
+  }
 }
 
 object MLRow {
