@@ -1,4 +1,4 @@
-package mli.test.interface
+package mli.test.impl
 
 import org.scalatest.FunSuite
 import mli.interface._
