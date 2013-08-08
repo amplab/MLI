@@ -3,7 +3,7 @@ package mli.interface
 import mli.interface.impl.SparkMLTable
 import mli.interface.MLTypes._
 
-import spark.SparkContext
+import spark.{RDD, SparkContext}
 import SparkContext._
 
 
@@ -117,9 +117,17 @@ trait MLTable {
   def collect(): Seq[MLRow]
   def take(n: Int): Seq[MLRow]
 
+  //We support toRDD to for interoperability with Spark.
+  def toRDD(targetCol: Index = 0): RDD[(Double,Array[Double])]
+
   //Concrete methods provided by the interface below.
   def project(cols: => Seq[String]): MLTable = {
     project(schema.lookup(cols))
+  }
+
+  def drop(cols: Seq[Index]) = {
+    val converse = (0 until numCols).diff(cols).toArray
+    project(converse)
   }
 
   def setSchema(newSchema: Schema) = {

@@ -19,7 +19,7 @@ class MLContext(val sc: spark.SparkContext) {
     val rdd = sc.textFile(path)
     if (isNumeric) SparkMLTable(rdd.map(parsePoint(_,sep)))
     //TODO: Need to build the non-numeric case. Also need to pass in header info.
-    else SparkMLTable(rdd.map(parsePoint(_,sep)))
+    else SparkMLTable.fromMLRowRdd(rdd.map(x => DenseMLRow.fromSeq(x.split(sep).map(MLValue(_)))))
     //else new DenseSparkMLTable(rdd.map(_.split(sep.toArray).map(str => MLValue(str.trim()))).map(MLRow.chooseRepresentation))
   }
 

@@ -49,6 +49,8 @@ trait MLRow extends IndexedSeq[MLValue]
     }
     return 0
   }
+
+  def toDoubleArray: Array[Double]
 }
 
 object MLRow {
@@ -145,6 +147,7 @@ class SparseMLRow private(
 
   lazy val vec = MLVector(iterator.toArray)
   override implicit def toVector = MLVector(iterator.toArray)
+  def toDoubleArray = this.toVector.data.data
 
   //FIXME: Need to build in a sparse way.
   override def newMlRowBuilder = new ArrayBuffer[MLValue]().mapResult({array => MLRow.chooseRepresentation(array)})

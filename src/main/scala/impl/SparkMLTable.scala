@@ -128,12 +128,18 @@ class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], var schema: S
    */
   def project(cols: Seq[Index]) = map(row => MLRow.chooseRepresentation(cols.map(i => row(i)).toSeq))
 
-  def drop(cols: Seq[Index]) = {
-    val converse = (0 until numCols).diff(cols).toArray
-    project(converse)
-  }
 
   def take(count: Int) = rdd.take(count)
+
+  /**
+   * We support a toRDD operation here for interoperability with spark.
+   */
+  def toRDD(targetCol: Index = 0): spark.RDD[(Double,Array[Double])] = {
+    val othercols = nonCols(Seq(targetCol), schema)
+    rdd.map(r => (r(Seq(targetCol))(0).toNumber, r(othercols).toDoubleArray))
+  }
+
+  def toMLRowRdd(): spark.RDD[MLRow] = rdd
 
 
   /**
@@ -146,6 +152,8 @@ class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], var schema: S
   def print() = rdd.collect.foreach(row => println(row.mkString("\t")))
 
   def print(count: Int) = take(count).foreach(row => println(row.mkString("\t")))
+
+
 
 }
 

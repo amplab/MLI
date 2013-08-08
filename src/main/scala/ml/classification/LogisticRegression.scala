@@ -1,22 +1,20 @@
-package mli.ml
+package mli.ml.classification
 
+import mli.ml._
 import scala.math
 import mli.interface._
 
-class LogisticRegressionModel( trainingTbl: MLTable,
-                               trainingParams: LogisticRegressionParameters,
-                               trainingTime: Long,
-                               val weights: MLRow)
+class LogisticRegressionModel(
+    trainingTbl: MLTable,
+    trainingParams: LogisticRegressionParameters,
+    trainingTime: Long,
+    val weights: MLRow)
   extends Model[LogisticRegressionParameters](trainingTbl, trainingTime, trainingParams) {
 
 
   /* Predicts the label of a given data point. */
   def predict(x: MLRow) : MLValue = {
     MLValue(LogisticRegressionAlgorithm.sigmoid(weights dot x))
-  }
-
-  def predict(tbl: MLTable): MLTable = {
-    tbl.map((x: MLRow) => MLRow.chooseRepresentation(Seq(predict(x))))
   }
 
   /**
@@ -29,11 +27,11 @@ class LogisticRegressionModel( trainingTbl: MLTable,
 }
 
 case class LogisticRegressionParameters(
-   learningRate: Double = 0.2,
-   maxIterations: Int = 100,
-   minLossDelta: Double = 1e-5,
-   optimizer: String = "SGD"
-) extends AlgorithmParameters
+    learningRate: Double = 0.2,
+    maxIterations: Int = 100,
+    minLossDelta: Double = 1e-5,
+    optimizer: String = "SGD")
+  extends AlgorithmParameters
 
 
 object LogisticRegressionAlgorithm extends Algorithm[LogisticRegressionParameters] with Serializable {

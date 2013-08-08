@@ -1,10 +1,10 @@
-package mli.test.ml
+package mli.test.ml.classification
 
 import org.scalatest.FunSuite
 import org.scalatest.BeforeAndAfter
 import mli.interface._
+import mli.ml.classification.LogisticRegressionAlgorithm
 import mli.test.testsupport.LocalSparkContext
-import mli.ml.LogisticRegressionAlgorithm
 import spark.SparkContext
 
 class LogisticRegressionSuite extends FunSuite with LocalSparkContext {
