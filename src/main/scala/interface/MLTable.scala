@@ -105,6 +105,7 @@ trait MLTable {
   def project(cols: Seq[Index]): MLTable
   def join(other: MLTable, cols: Seq[Index]): MLTable
   def flatMap(m: MLRow => TraversableOnce[MLRow]): MLTable
+  def cache(): MLTable
 
   def reduce(f: (MLRow, MLRow) => MLRow): MLRow
   def reduceBy(keys: Seq[Index], f: (MLRow, MLRow) => MLRow): MLTable
