@@ -96,7 +96,7 @@ class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], var schema: S
   /**
    * Creates a new MLTable based on the cached version of the RDD.
    */
-  def cache() = SparkMLTable.fromMLRowRdd(rdd.cache())
+  def cache() = new SparkMLTable(rdd.cache(), schema)
 
   /**
    * Sort a table based on a key.
