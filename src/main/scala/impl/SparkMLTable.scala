@@ -117,7 +117,7 @@ class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], inSchema: Opt
   def sortBy(key: Seq[Index], ascending: Boolean = true): MLTable = {
     //val notKey = nonCols(key, schema)
     val newRdd = rdd.map(r => (r(key), r)).sortByKey(ascending).map(_._2)
-    SparkMLTable.fromMLRowRdd(newRdd, tableSchema)
+    new SparkMLTable(newRdd, tableSchema)
   }
 
   /**
