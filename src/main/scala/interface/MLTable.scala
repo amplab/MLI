@@ -95,7 +95,9 @@ class SchemaException(val error: String) extends Exception
 trait MLTable {
   val numCols: Int
   val numRows: Long
-  var schema: Schema
+  var tableSchema: Option[Schema]
+
+  def schema(): Schema
 
   def filter(f: MLRow => Boolean): MLTable
   def union(other: MLTable): MLTable
@@ -132,7 +134,7 @@ trait MLTable {
   }
 
   def setSchema(newSchema: Schema) = {
-    schema = newSchema
+    tableSchema = Some(newSchema)
   }
 
   override def toString = {
@@ -140,9 +142,8 @@ trait MLTable {
   }
 
   def setColNames(names: Seq[String]) = {
-    //TODO: Need
     val newcols = (0 until names.length).map(i => new ColumnSpec(Some(names(i)), schema.columns(i).kind))
-    schema = new Schema(newcols)
+    tableSchema = Some(new Schema(newcols))
   }
 }
 

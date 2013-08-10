@@ -7,15 +7,28 @@ import spark.SparkContext
 import SparkContext._
 
 
-class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], var schema: Schema) extends MLTable with Serializable {
+class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], inSchema: Option[Schema] = None) extends MLTable with Serializable {
   lazy val numCols = rdd.first.size
 
   lazy val numRows = rdd.count
 
+  var tableSchema = inSchema
+
+  /**
+   * Return the current schema. Since schema is inferred, we wait to do this until it is explicitly asked for in the
+   * common case.
+   */
+  def schema(): Schema = {
+    tableSchema match {
+      case Some(s) => s
+      case None => Schema(rdd.first)
+    }
+  }
+
   /**
    * Return a new RDD containing only the elements that satisfy a predicate.
    */
-  def filter(f: MLRow => Boolean): SparkMLTable = new SparkMLTable(rdd.filter(f), schema)
+  def filter(f: MLRow => Boolean): SparkMLTable = new SparkMLTable(rdd.filter(f), tableSchema)
 
   /**
    * Return the union of this RDD and another one. Any identical elements will appear multiple
@@ -24,7 +37,7 @@ class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], var schema: S
   def union(other: MLTable): SparkMLTable = this
   def union(other: SparkMLTable): SparkMLTable = {
     assert(schema == other.schema)
-    new SparkMLTable(rdd.union(other.rdd), schema)
+    new SparkMLTable(rdd.union(other.rdd), Some(schema))
   }
 
   /**
@@ -52,7 +65,7 @@ class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], var schema: S
     val newRdd = t1.join(t2).map { case (a,(b,c)) => MLRow.chooseRepresentation(a ++ b ++ c)}
     lazy val newSchema = schema.join(other.schema, cols)
 
-    new SparkMLTable(newRdd, newSchema)
+    new SparkMLTable(newRdd, Some(newSchema))
 
   }
 
@@ -72,7 +85,7 @@ class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], var schema: S
    *  Return a new RDD by first applying a function to all elements of this
    *  RDD, and then flattening the results.
    */
-  def flatMap(f: MLRow => TraversableOnce[MLRow]): SparkMLTable = new SparkMLTable(rdd.flatMap(f), schema)
+  def flatMap(f: MLRow => TraversableOnce[MLRow]): SparkMLTable = new SparkMLTable(rdd.flatMap(f))
 
   /**
    *  Return a value by applying a reduce function to every element of the table.
@@ -96,7 +109,7 @@ class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], var schema: S
   /**
    * Creates a new MLTable based on the cached version of the RDD.
    */
-  def cache() = new SparkMLTable(rdd.cache(), schema)
+  def cache() = new SparkMLTable(rdd.cache(), tableSchema)
 
   /**
    * Sort a table based on a key.
@@ -104,7 +117,7 @@ class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], var schema: S
   def sortBy(key: Seq[Index], ascending: Boolean = true): MLTable = {
     //val notKey = nonCols(key, schema)
     val newRdd = rdd.map(r => (r(key), r)).sortByKey(ascending).map(_._2)
-    SparkMLTable.fromMLRowRdd(newRdd)
+    SparkMLTable.fromMLRowRdd(newRdd, tableSchema)
   }
 
   /**
@@ -157,9 +170,6 @@ class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], var schema: S
   def print() = rdd.collect.foreach(row => println(row.mkString("\t")))
 
   def print(count: Int) = take(count).foreach(row => println(row.mkString("\t")))
-
-
-
 }
 
 object SparkMLTable {
@@ -170,14 +180,10 @@ object SparkMLTable {
 
   def apply(rdd: spark.RDD[Array[Double]]): SparkMLTable = {
     val mldRdd = rdd.map(row => MLRow.chooseRepresentation(row.map(MLValue(_))))
-    lazy val schema = Schema(mldRdd.first)
-
-    new SparkMLTable(mldRdd, schema)
+    new SparkMLTable(mldRdd)
   }
 
   def fromMLRowRdd(rdd: spark.RDD[MLRow]): SparkMLTable = {
-    lazy val schema = Schema(rdd.first)
-
-    new SparkMLTable(rdd, schema)
+    new SparkMLTable(rdd)
   }
 }

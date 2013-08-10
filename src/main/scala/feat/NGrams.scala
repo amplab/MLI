@@ -69,7 +69,6 @@ object NGrams extends FeatureExtractor with Serializable {
    * @return Table of featurized data.
    */
   def extractNGrams(in: MLTable, n: Int=1, k: Int=20000): MLTable = {
-    assert(in.numCols == 1)
 
     //Build dictionary.
     val dict = buildDictionary(in, n, k)

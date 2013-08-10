@@ -31,7 +31,8 @@ class MLContext(val sc: spark.SparkContext) {
    */
   def loadCsvFile(path: String, isNumeric: Boolean = false): MLTable = loadFile(path, ",", isNumeric)
 
-  def loadText(path: String): MLTable = new SparkMLTable(sc.textFile(path).map((x: String) => MLRow(MLValue(x))), new Schema(Seq(ColumnSpec(Some("string"), ColumnType.String))))
+  def loadText(path: String): MLTable = new SparkMLTable(sc.textFile(path).map((x: String) => MLRow(MLValue(x))),
+    Some(new Schema(Seq(ColumnSpec(Some("string"), ColumnType.String)))))
 
   def load(data: Array[Array[Double]], numSlices: Int = 4) = {
     //val newRdd = sc.makeRDD(data.map(row => MLRow.chooseRepresentation(row.map(MLValue(_)))))
