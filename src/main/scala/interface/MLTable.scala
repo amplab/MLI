@@ -143,7 +143,8 @@ trait MLTable {
   }
 
   def setColNames(names: Seq[String]) = {
-    val newcols = (0 until names.length).map(i => new ColumnSpec(Some(names(i)), schema.columns(i).kind))
+    val theSchema = schema()
+    val newcols = (0 until names.length).map(i => new ColumnSpec(Some(names(i)), theSchema.columns(i).kind))
     tableSchema = Some(new Schema(newcols))
   }
 }
