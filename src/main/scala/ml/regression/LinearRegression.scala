@@ -2,7 +2,7 @@ package mli.ml.classification
 
 import mli.interface._
 import mli.ml._
-import spark.mllib.regression.{RidgeRegression,LassoLocalRandomSGD}
+import spark.mllib.regression.LassoWithSGD
 
 class LinearRegressionModel(
     trainingTbl: MLTable,
@@ -51,7 +51,7 @@ object LinearRegressionAlgorithm extends Algorithm[LinearRegressionParameters] w
 
     //Run gradient descent on the data.
     val sparkmodel = params.regStyle match {
-      case "Lasso" => LassoLocalRandomSGD.train(
+      case "Lasso" => LassoWithSGD.train(
         data.toRDD(params.targetCol),
         params.maxIterations,
         params.learningRate,

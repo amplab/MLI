@@ -5,6 +5,7 @@ import mli.interface.MLTypes._
 
 import spark.{RDD, SparkContext}
 import SparkContext._
+import spark.mllib.regression.LabeledPoint
 
 
 /**
@@ -121,7 +122,7 @@ trait MLTable {
   def take(n: Int): Seq[MLRow]
 
   //We support toRDD to for interoperability with Spark.
-  def toRDD(targetCol: Index = 0): RDD[(Double,Array[Double])]
+  def toRDD(targetCol: Index = 0): RDD[LabeledPoint]
 
   //Concrete methods provided by the interface below.
   def project(cols: => Seq[String]): MLTable = {

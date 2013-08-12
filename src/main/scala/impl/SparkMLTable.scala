@@ -5,6 +5,7 @@ import mli.impl.DenseMLMatrix
 import mli.interface.MLTypes._
 import spark.SparkContext
 import SparkContext._
+import spark.mllib.regression.LabeledPoint
 
 
 class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], inSchema: Option[Schema] = None) extends MLTable with Serializable {
@@ -152,9 +153,9 @@ class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], inSchema: Opt
   /**
    * We support a toRDD operation here for interoperability with spark.
    */
-  def toRDD(targetCol: Index = 0): spark.RDD[(Double,Array[Double])] = {
+  def toRDD(targetCol: Index = 0): spark.RDD[LabeledPoint] = {
     val othercols = nonCols(Seq(targetCol), schema)
-    rdd.map(r => (r(Seq(targetCol))(0).toNumber, r(othercols).toDoubleArray))
+    rdd.map(r => LabeledPoint(r(Seq(targetCol))(0).toNumber, r(othercols).toDoubleArray))
   }
 
   def toMLRowRdd(): spark.RDD[MLRow] = rdd

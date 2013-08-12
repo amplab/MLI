@@ -2,7 +2,8 @@ package mli.ml.classification
 
 import mli.interface._
 import mli.ml._
-import spark.mllib.classification.SVMLocalRandomSGD
+import spark.mllib.classification.SVMWithSGD
+import spark.mllib.regression.LabeledPoint
 
 class SVMModel(
     trainingTbl: MLTable,
@@ -50,8 +51,8 @@ object SVMAlgorithm extends Algorithm[SVMParameters] with Serializable {
     val startTime = System.currentTimeMillis
 
     //Run gradient descent on the data.
-    val weights = SVMLocalRandomSGD.train(
-      data.toRDD(params.targetCol).map(r => (r._1.toInt, r._2)),
+    val weights = SVMWithSGD.train(
+      data.toRDD(params.targetCol),
       params.maxIterations,
       params.learningRate,
       params.regParam,
