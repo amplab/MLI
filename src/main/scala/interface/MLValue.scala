@@ -3,7 +3,7 @@ package mli.interface
 /**
  * Base class for basic ML types.
  */
-abstract class MLValue() extends Ordered[MLValue] {
+abstract class MLValue() extends Ordered[MLValue] with Serializable {
   def isEmpty: Boolean = false
   def isNumeric: Boolean
   def toNumber: Double
