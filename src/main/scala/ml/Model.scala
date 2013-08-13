@@ -11,7 +11,7 @@ import mli.interface._
 
 abstract class Model[P](val trainingData: MLTable,
                         val trainingTime: Long,
-                        val trainingParams: P) {
+                        val trainingParams: P) extends Serializable{
 
   /* Predicts the label of a given data point. */
   def predict(x: MLRow) : MLValue

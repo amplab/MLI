@@ -3,7 +3,7 @@ package mli.ml
 import mli.interface._
 
 /* A generic Algorithm. Training examples are of type U, model parameters of type P. */
-abstract class Algorithm[P] {
+abstract class Algorithm[P] extends Serializable{
 
   def defaultParameters(): P
 
@@ -15,4 +15,4 @@ abstract class Algorithm[P] {
 /**
  * Placeholder for a generic set of algorithm parameters.
  */
-abstract class AlgorithmParameters
+abstract class AlgorithmParameters extends Serializable
