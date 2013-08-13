@@ -10,7 +10,7 @@ class SVMModel(
     trainingParams: SVMParameters,
     trainingTime: Long,
     val model: spark.mllib.classification.SVMModel)
-  extends Model[SVMParameters](trainingTbl, trainingTime, trainingParams) {
+  extends Model[SVMParameters](trainingTbl, trainingTime, trainingParams) with Serializable {
 
 
   /* Predicts the label of a given data point. */

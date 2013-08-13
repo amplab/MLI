@@ -9,7 +9,7 @@ class LogisticRegressionModel(
     trainingParams: LogisticRegressionParameters,
     trainingTime: Long,
     val weights: MLRow)
-  extends Model[LogisticRegressionParameters](trainingTbl, trainingTime, trainingParams) {
+  extends Model[LogisticRegressionParameters](trainingTbl, trainingTime, trainingParams) with Serializable {
 
 
   /* Predicts the label of a given data point. */
