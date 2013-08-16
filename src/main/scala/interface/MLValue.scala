@@ -24,6 +24,7 @@ case class MLInt(value: Option[Int]) extends MLValue {
   }
 }
 
+
 case class MLDouble(value: Option[Double]) extends MLValue {
   override def isEmpty = value.isEmpty
   def isNumeric = true
@@ -34,6 +35,7 @@ case class MLDouble(value: Option[Double]) extends MLValue {
     case None => "None"
   }
 }
+
 
 case class MLString(value: Option[String]) extends MLValue {
   override def isEmpty = value.isEmpty
@@ -67,6 +69,10 @@ object MLValue {
   implicit def doubleToMLValue(value: Double): MLValue = MLDouble(Option(value))
   implicit def stringToMLValue(value: String): MLValue = MLString(Option(value))
   implicit def intToMLValue(value: Int): MLValue = MLInt(Option(value))
+
+  implicit def mlValueToDouble(value: MLValue): Double = value.toNumber
+  implicit def mlValueToInt(value: MLValue): Int = value.toNumber.toInt
+  implicit def mlValueToString(value: MLValue): String = value.toString
 
   //Do we need an implicit for none?
   //implicit def emptyToMLValue(value: )

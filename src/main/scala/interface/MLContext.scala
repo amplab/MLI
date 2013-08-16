@@ -25,7 +25,7 @@ class MLContext(val sc: spark.SparkContext) {
 
   /**
    * Specialized loader for dense, CSV data.
-   *@param path Input path.
+   * @param path Input path.
    * @param isNumeric By default, we assume that CSV data is not numeric.
    * @return Returns an MLTable which contains the data in the input path.
    */

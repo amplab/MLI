@@ -23,8 +23,14 @@ class SVMModel(
    * For example, plots or console output.
    */
   def explain() : String = {
-    "Weights: " + model.weights
+    "Weights: " + model.weights.mkString(" ")
   }
+
+  lazy val features: Seq[(String, Double)] = trainingTbl.schema
+      .columns.drop(1)
+      .zipWithIndex
+      .map(c => c._1.name.getOrElse(c._2.toString))
+      .zip(model.weights)
 }
 
 case class SVMParameters(

@@ -1,12 +1,18 @@
 package mli.interface
 
-import collection.immutable.TreeMap
-import collection.mutable.ArrayBuffer
-import collection._
+import mli.interface.MLTypes._
+import scala.collection.immutable.TreeMap
+import scala.collection.mutable.ArrayBuffer
+import scala.collection._
 import generic.{HasNewBuilder, SeqFactory, CanBuildFrom}
-import scala.Iterator
+import scala._
+import scala.collection.immutable
+import scala.collection.IndexedSeq
 import scala.Some
-import collection.immutable
+import scala.Iterator
+import scala.collection.Seq
+import scala.collection.TraversableOnce
+import scala.Some
 
 /**
  * A single row composed of zero or more columns.  MLRow is typically used in
@@ -26,6 +32,11 @@ trait MLRow extends IndexedSeq[MLValue]
 
   /** Supports indexing by a sequence of indices. */
   def apply(inds: Seq[Int]): MLRow = MLRow(inds.map(this(_)):_*)
+
+  def drop(cols: Seq[Int]) = {
+    val converse = (0 until this.length).diff(cols).toArray
+    apply(converse)
+  }
 
   /** An iterator through the nonzero rows ((index, value) pairs) of this row. */
   def nonZeros(): Iterator[(Int, MLValue)]
@@ -149,8 +160,11 @@ class SparseMLRow private(
   override implicit def toVector = MLVector(iterator.toArray)
   def toDoubleArray = this.toVector.data.data
 
-  //FIXME: Need to build in a sparse way.
-  override def newMlRowBuilder = new ArrayBuffer[MLValue]().mapResult({array => MLRow.chooseRepresentation(array)})
+  //TODO: Need to do some performance testing here.
+  override def newMlRowBuilder = new ArrayBuffer[MLValue]().mapResult({array =>
+    val n = TreeMap[Int, MLValue](array.zipWithIndex.filter(_._1 != emptyValue).map(x => (x._2,x._1)):_*)
+    new SparseMLRow(n, array.length, emptyValue)
+  })
 }
 
 

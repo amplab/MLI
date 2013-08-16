@@ -145,7 +145,9 @@ class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], inSchema: Opt
   /**
    * Reduce the ml table to a table over a specific set of columns.
    */
-  def project(cols: Seq[Index]) = map(row => MLRow.chooseRepresentation(cols.map(i => row(i)).toSeq))
+  def project(cols: Seq[Index]) = {
+    map(row => MLRow.chooseRepresentation(cols.map(i => row(i)).toSeq))
+  }
 
 
   def take(count: Int) = rdd.take(count)

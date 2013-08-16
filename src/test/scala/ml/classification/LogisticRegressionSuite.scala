@@ -22,11 +22,11 @@ class LogisticRegressionSuite extends FunSuite with LocalSparkContext {
 
     var x = model.predict(MLVector(Array(20.0,20.0))).toNumber
     println("Model prediction for (20.0,20.0): " + x)
-    //assert(x > 0.5)
+    assert(x > 0.5)
 
     x = model.predict(MLVector(Array(0.0,0.0))).toNumber
-    println("Model prediction for (0.0,0.0): " + x)
-    //assert(x < 0.5)
+    println("Model prediction for (-1.0,0.0): " + x)
+    assert(x <= 0.5)
   }
 
   test("Basic test of logistic regression via Parallel Gradient") {

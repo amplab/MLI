@@ -12,10 +12,10 @@ object NGrams extends FeatureExtractor with Serializable {
   /**
    * Helper method used to build total frequency table of all n-grams in the corpus.
    */
-  def buildDictionary(table: MLTable, numGrams: Int, numFeatures: Int, stopWords: Set[String]): Seq[(String,Int)] = {
+  def buildDictionary(table: MLTable, col: Int, numGrams: Int, numFeatures: Int, stopWords: Set[String]): Seq[(String,Int)] = {
 
     //This is the classic Word Count, sorted descending by frequency.
-    val freqTable = table.flatMap(rowToNgramRows(_, numGrams, stopWords))
+    val freqTable = table.flatMap(rowToNgramRows(_, col, numGrams, stopWords))
                         .map(row => MLRow(row(0),1))
                         .reduceBy(Seq(0), (x,y) => MLRow(x(0),x(1).toNumber+y(1).toNumber))  //Run a reduceByKey on the first column.
                         .sortBy(Seq(1), false)    //Run a sortby on the second column.
@@ -43,43 +43,47 @@ object NGrams extends FeatureExtractor with Serializable {
   }
 
   //Responsible for tokenizing data for dictionary calculation.
-  def rowToNgramRows(row: MLRow, n: Int, stopWords: Set[String]): Seq[MLRow] = {
-    val grams = ngrams(row(0).toString, n, stopWords)
+  def rowToNgramRows(row: MLRow, col: Int, n: Int, stopWords: Set[String]): Seq[MLRow] = {
+    val grams = ngrams(row(col).toString, n, stopWords)
     grams.map(s => MLRow(MLValue(s))).toSeq
   }
 
   //The main map function - given a row and a dictionary, return a new row which is an n-gram feature vector.
-  def rowToFilteredNgrams(row: MLRow, dict: Seq[(String,Int)], n: Int, stopWords: Set[String]): MLRow = {
+  def rowToFilteredNgrams(row: MLRow, col: Int, dict: Seq[(String,Int)], n: Int, stopWords: Set[String]): MLRow = {
 
     //Pull out the ngrams for a specific string.
-    val x = ngrams(row(0).toString, n, stopWords)
+    val x = ngrams(row(col).toString, n, stopWords)
 
     //Given my dictionary, create an Index,Value pair that indicates whether or not
     //the ngram was present in the string.
     val coll = dict.zipWithIndex.filter{ case((a,b), c) => x.contains(a)}.map {case ((a,b), c) => (c, MLValue(1.0))}
 
     //Return a new sparse row based on this feature vector.
-    SparseMLRow.fromSparseCollection(coll, dict.length, MLValue(0.0))
+    SparseMLRow.fromNumericSeq(row.drop(col)) ++ SparseMLRow.fromSparseCollection(coll, dict.length, MLValue(0.0))
   }
 
   /**
    * Extract N-Grams
-   * @param in Input corpus - MLTable with one string column per row.
+   * @param in Input corpus - MLTable.
+   * @param c Input column - The text column you want transformed to Ngrams.
    * @param n Number of grams to compute (default: 1)
    * @param k Top-k features to keep.
    * @return Table of featurized data.
    */
-  def extractNGrams(in: MLTable, n: Int=1, k: Int=20000, stopWords: Set[String] = Set[String]()): MLTable = {
+  def extractNGrams(in: MLTable, c: Int=0, n: Int=1, k: Int=20000, stopWords: Set[String] = stopWords): (MLTable, MLRow => MLRow) = {
 
     //Build dictionary.
-    val dict = buildDictionary(in, n, k, stopWords)
+    val dict = buildDictionary(in, c, n, k, stopWords)
 
     //Extract the ngrams and pack into collection of rows.
-    val out = in.map(rowToFilteredNgrams(_, dict, n, stopWords))
+    def featurizer(x: MLRow) = rowToFilteredNgrams(x, c, dict, n, stopWords)
+
+    val out = in.map(featurizer(_))
+    val existingColNames = in.drop(Seq(c)).schema.columns.map(_.name.getOrElse(""))
 
     //Set the column names of the table to match the NGram features.
-    out.setColNames(dict.map(_._1))
-    out
+    out.setColNames(existingColNames ++ dict.map(_._1))
+    (out, featurizer)
   }
 
   /**
@@ -95,7 +99,54 @@ object NGrams extends FeatureExtractor with Serializable {
   /**
    * Default entry point.
    * @param in Input corpus.
-   * @return Table of featurized data.
+   * @return Table of featurized data. Note, if you want to featurize new data in the same way, you'll need to call
+   *         extractNGrams directly.
    */
-  def extract(in: MLTable): MLTable = extractNGrams(in)
+  def extract(in: MLTable): MLTable = extractNGrams(in)._1
+
+
+  /**
+   * A list of common English stop words.
+   */
+  val stopWords = Set("a", "about", "above", "above", "across", "after",
+    "afterwards", "again", "against", "all", "almost",
+    "alone", "along", "already", "also","although","always",
+    "am","among", "amongst", "amongst", "amount",  "an", "and",
+    "another", "any","anyhow","anyone","anything","anyway", "anywhere",
+    "are", "around", "as",  "at", "back","be","became", "because",
+    "become","becomes", "becoming", "been", "before", "beforehand",
+    "behind", "being", "below", "beside", "besides", "between", "beyond",
+    "bill", "both", "bottom","but", "by", "call", "can", "cannot",
+    "cant", "co", "con", "could", "couldnt", "cry", "de", "describe",
+    "detail", "do", "done", "down", "due", "during", "each", "eg",
+    "eight", "either", "eleven","else", "elsewhere", "empty",
+    "enough", "etc", "even", "ever", "every", "everyone", "everything",
+    "everywhere", "except", "few", "fifteen", "fify", "fill", "find",
+    "fire", "first", "five", "for", "former", "formerly", "forty",
+    "found", "four", "from", "front", "full", "further", "get", "give",
+    "go", "had", "has", "hasnt", "have", "he", "hence", "her", "here",
+    "hereafter", "hereby", "herein", "hereupon", "hers", "herself", "him",
+    "himself", "his", "how", "however", "hundred", "ie", "if", "in", "inc",
+    "indeed", "interest", "into", "is", "it", "its", "itself", "keep", "last",
+    "latter", "latterly", "least", "less", "ltd", "made", "many", "may", "me",
+    "meanwhile", "might", "mill", "mine", "more", "moreover", "most", "mostly",
+    "move", "much", "must", "my", "myself", "name", "namely", "neither", "never",
+    "nevertheless", "next", "nine", "no", "nobody", "none", "noone", "nor", "not",
+    "nothing", "now", "nowhere", "of", "off", "often", "on", "once", "one",
+    "only", "onto", "or", "other", "others", "otherwise", "our", "ours", "ourselves",
+    "out", "over", "own","part", "per", "perhaps", "please", "put", "rather", "re",
+    "same", "see", "seem", "seemed", "seeming", "seems", "serious", "several", "she",
+    "should", "show", "side", "since", "sincere", "six", "sixty", "so", "some",
+    "somehow", "someone", "something", "sometime", "sometimes", "somewhere", "still",
+    "such", "system", "take", "ten", "than", "that", "the", "their", "them",
+    "themselves", "then", "thence", "there", "thereafter", "thereby", "therefore",
+    "therein", "thereupon", "these", "they", "thick", "thin", "third", "this",
+    "those", "though", "three", "through", "throughout", "thru", "thus", "to",
+    "together", "too", "top", "toward", "towards", "twelve", "twenty", "two", "un",
+    "under", "until", "up", "upon", "us", "very", "via", "was", "we", "well",
+    "were", "what", "whatever", "when", "whence", "whenever", "where", "whereafter",
+    "whereas", "whereby", "wherein", "whereupon", "wherever", "whether", "which",
+    "while", "whither", "who", "whoever", "whole", "whom", "whose", "why", "will",
+    "with", "within", "without", "would", "yet", "you", "your", "yours", "yourself",
+    "yourselves")
 }
