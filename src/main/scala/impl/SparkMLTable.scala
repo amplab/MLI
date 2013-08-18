@@ -146,6 +146,7 @@ class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], inSchema: Opt
    * Reduce the ml table to a table over a specific set of columns.
    */
   def project(cols: Seq[Index]) = {
+    //TODO - project should project schema as well.
     map(row => MLRow.chooseRepresentation(cols.map(i => row(i)).toSeq))
   }
 
@@ -157,7 +158,7 @@ class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], inSchema: Opt
    */
   def toRDD(targetCol: Index = 0): spark.RDD[LabeledPoint] = {
     val othercols = nonCols(Seq(targetCol), schema)
-    rdd.map(r => LabeledPoint(r(Seq(targetCol))(0).toNumber, r(othercols).toDoubleArray))
+    rdd.map(r => LabeledPoint(r(targetCol).toNumber, r(othercols).toDoubleArray))
   }
 
   def toMLRowRdd(): spark.RDD[MLRow] = rdd

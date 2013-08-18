@@ -2,7 +2,7 @@ package mli.interface
 
 import mli.interface.impl.SparkMLTable
 
-class MLContext(val sc: spark.SparkContext) {
+class MLContext(@transient val sc: spark.SparkContext) extends Serializable {
 
   /**
    *
@@ -38,5 +38,43 @@ class MLContext(val sc: spark.SparkContext) {
     //val newRdd = sc.makeRDD(data.map(row => MLRow.chooseRepresentation(row.map(MLValue(_)))))
     val newRdd = sc.makeRDD(data)
     SparkMLTable(newRdd)
+  }
+
+  /**
+   * Loads data in LibSVM or augmented LibSVM (index on first column) format.
+   *
+   * Expects data to look like:
+   * 0:1.00 4:0.005 ... index:value
+   *
+   * Assumes indexes are monotonically increasing.
+   * Current implementation takes one full pass over data to determine dimensionality.
+   *
+   * Todo - add support for index free first column.
+   *
+   * @param path
+   * @return
+   */
+  def loadSparseFile(path: String): MLTable = {
+
+    //Takes a line and returns a sequence of (index,value) pairs.
+    def parseSparsePoint(text: String): Array[(Int, Double)] = {
+      val items = text.split(" ")
+
+      items.map(r => {
+        val res = r.split(":")
+        (res(0).toInt, res(1).toDouble)
+      })
+    }
+
+    def makeRow(x: Array[(Int, Double)], maxIndex: Int): MLRow = {
+      val newRow = x.map(v => (v._1, MLDouble(Some(v._2)))).toIterable
+      SparseMLRow.fromSparseCollection(newRow, maxIndex, 0.0)
+    }
+    val rdd = sc.textFile(path).map(parseSparsePoint)
+
+    val maxIndex = rdd.map(x => x.last._1).reduce(_ max _)
+
+    val newRdd = rdd.map(makeRow(_, maxIndex))
+    SparkMLTable.fromMLRowRdd(newRdd)
   }
 }
