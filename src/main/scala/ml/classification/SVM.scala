@@ -58,7 +58,7 @@ object SVMAlgorithm extends Algorithm[SVMParameters] {
 
     //Run gradient descent on the data.
     val weights = SVMWithSGD.train(
-      data.toRDD(params.targetCol),
+      data.toRDD(params.targetCol).cache(),
       params.maxIterations,
       params.learningRate,
       params.regParam,

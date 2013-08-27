@@ -52,7 +52,7 @@ object LinearRegressionAlgorithm extends Algorithm[LinearRegressionParameters] w
     //Run gradient descent on the data.
     val sparkmodel = params.regStyle match {
       case "Lasso" => LassoWithSGD.train(
-        data.toRDD(params.targetCol),
+        data.toRDD(params.targetCol).cache(),
         params.maxIterations,
         params.learningRate,
         params.regParam,
