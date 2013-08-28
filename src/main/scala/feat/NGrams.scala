@@ -59,7 +59,8 @@ object NGrams extends FeatureExtractor with Serializable {
     val coll = dict.zipWithIndex.filter{ case((a,b), c) => x.contains(a)}.map {case ((a,b), c) => (c, MLValue(1.0))}
 
     //Return a new sparse row based on this feature vector.
-    SparseMLRow.fromNumericSeq(row.drop(col)) ++ SparseMLRow.fromSparseCollection(coll, dict.length, MLValue(0.0))
+    val sparsemlval = SparseMLRow.fromNumericSeq(row.drop(Seq(col)))
+    SparseMLRow.fromNumericSeq(row.drop(Seq(col))) ++ SparseMLRow.fromSparseCollection(coll, dict.length, MLValue(0.0))
   }
 
   /**
@@ -91,9 +92,12 @@ object NGrams extends FeatureExtractor with Serializable {
    * @param in MLTable of NGram features (result of extractNGrams)
    * @return TF-IDF features for an MLTable.
    */
-  def tfIdf(in: MLTable): MLTable = {
+  def tfIdf(in: MLTable, c: Int=0): MLTable = {
     val df = in.reduce(_ plus _)
-    in.map(_ over df)
+    val df2 = df.toDoubleArray
+    df2(c) = 1.0
+    val df3 = MLVector(df2)
+    in.map(r => r over df3)
   }
 
   /**

@@ -1,6 +1,7 @@
+package mli.feat
+
 import scala.math.sqrt
 
-import mli.feat.FeatureExtractor
 import mli.interface.{MLVector, MLTable}
 
 /**

@@ -18,4 +18,17 @@ object MLTableUtils {
     (res, trans)
   }
 
+  /**
+   * Takes an input table and splits it into train and test set.
+   * @param x Input table.
+   * @param percentTrain Percent of data that should go into the.
+   * @return Two MLTables - training and testing.
+   */
+  def trainTest(x: MLTable, percentTrain: Double=0.9): (MLTable, MLTable) = {
+    val trainSet = x.filter(r => percentTrain >= (r.hashCode.abs % 1000).toDouble / 1000 )
+    val testSet = x.filter(r => percentTrain < (r.hashCode.abs % 1000).toDouble / 1000 )
+    (trainSet, testSet)
+  }
+
+
 }
