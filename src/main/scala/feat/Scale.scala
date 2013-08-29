@@ -2,7 +2,7 @@ package mli.feat
 
 import scala.math.sqrt
 
-import mli.interface.{MLVector, MLTable}
+import mli.interface.{MLRow, MLVector, MLTable}
 
 /**
  * The scale feature extractor rescales features according to their standard deviation. This will preserve
@@ -17,7 +17,7 @@ object Scale extends FeatureExtractor with Serializable {
    * @param label Index of the label (will not be scaled).
    * @return Scaled MLTable.
    */
-  def scale(x: MLTable, label: Int = 0): MLTable = {
+  def scale(x: MLTable, label: Int = 0, featurizer: MLRow => MLRow): (MLTable, MLRow => MLRow) = {
     //First we compute the variance - note this could be done in one pass over the data.
     val ssq = x.map(r => r times r).reduce(_ plus _) over x.numRows
     val sum = x.reduce(_ plus _) over x.numRows
@@ -30,9 +30,13 @@ object Scale extends FeatureExtractor with Serializable {
     n(label) = 1.0
     val sdn = MLVector(n)
 
-    x.map(_ over sdn)
+    val newtab = x.map(_ over sdn)
+    newtab.setSchema(x.schema)
+    def newfeaturizer(r: MLRow) = featurizer(r) over sdn
+
+    (newtab, newfeaturizer)
   }
 
-  def extract(in: MLTable): MLTable = scale(in)
+  def extract(in: MLTable): MLTable = scale(in, featurizer = r => r)._1
 
 }

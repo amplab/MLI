@@ -97,7 +97,9 @@ object NGrams extends FeatureExtractor with Serializable {
     val df2 = df.toDoubleArray
     df2(c) = 1.0
     val df3 = MLVector(df2)
-    in.map(r => r over df3)
+    val newtab = in.map(r => r over df3)
+    newtab.setSchema(in.schema)
+    newtab
   }
 
   /**
