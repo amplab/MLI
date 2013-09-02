@@ -5,7 +5,7 @@ import org.scalatest.BeforeAndAfter
 import mli.interface._
 import mli.ml.classification.LogisticRegressionAlgorithm
 import mli.test.testsupport.LocalSparkContext
-import spark.SparkContext
+import org.apache.spark.SparkContext
 
 class LogisticRegressionSuite extends FunSuite with LocalSparkContext {
   val sampleData = Array(Array(1.0,10.0,12.0), Array(1.0,12.0,15.0), Array(-1.0,1.0,2.0), Array(-1.0,2.0,1.0))

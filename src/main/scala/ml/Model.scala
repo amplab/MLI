@@ -1,7 +1,5 @@
 package mli.ml
 
-import spark.RDD
-
 import mli.interface._
 
 /**

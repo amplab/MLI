@@ -2,13 +2,13 @@ package mli.ml.classification
 
 import mli.interface._
 import mli.ml._
-import spark.mllib.regression.LassoWithSGD
+import org.apache.spark.mllib.regression.{LassoWithSGD,RegressionModel}
 
 class LinearRegressionModel(
     trainingTbl: MLTable,
     trainingParams: LinearRegressionParameters,
     trainingTime: Long,
-    val model: spark.mllib.regression.RegressionModel)
+    val model: RegressionModel)
   extends Model[LinearRegressionParameters](trainingTbl, trainingTime, trainingParams) {
 
 

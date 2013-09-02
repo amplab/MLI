@@ -5,7 +5,7 @@ import scala.math.sqrt
 import mli.interface.{MLRow, MLVector, MLTable}
 
 /**
- * The scale feature extractor rescales features according to their standard deviation. This will preserve
+ * The Scale feature extractor rescales features according to their standard deviation. This will preserve
  * sparsity structure in Sparse feature tables. Future versions may also recenter the data.
  */
 object Scale extends FeatureExtractor with Serializable {

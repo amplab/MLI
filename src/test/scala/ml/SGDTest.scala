@@ -2,8 +2,8 @@ package mli.test.ml
 
 import org.scalatest.FunSuite
 import org.scalatest.BeforeAndAfter
-import spark.SparkContext
-import spark.SparkContext._
+import org.apache.spark.SparkContext
+import org.apache.spark.SparkContext._
 import mli.ml
 import mli.ml.opt
 /*

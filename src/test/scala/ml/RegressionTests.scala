@@ -6,8 +6,8 @@ import mli.test.testsupport.LocalSparkContext
 import org.scalatest.FunSuite
 import org.scalatest.BeforeAndAfter
 import org.jblas.DoubleMatrix
-import spark.SparkContext
-import spark.SparkContext._
+import org.apache.spark.SparkContext
+import org.apache.spark.SparkContext._
 import scala.util.Random
 
 class RegressionTests extends FunSuite with BeforeAndAfter with LocalSparkContext {

@@ -2,14 +2,14 @@ package mli.ml.classification
 
 import mli.interface._
 import mli.ml._
-import spark.mllib.classification.SVMWithSGD
-import spark.mllib.regression.LabeledPoint
+import org.apache.spark.mllib.classification.SVMWithSGD
+import org.apache.spark.mllib.regression.LabeledPoint
 
 class SVMModel(
     trainingTbl: MLTable,
     trainingParams: SVMParameters,
     trainingTime: Long,
-    val model: spark.mllib.classification.SVMModel)
+    val model: org.apache.spark.mllib.classification.SVMModel)
   extends Model[SVMParameters](trainingTbl, trainingTime, trainingParams) {
 
 

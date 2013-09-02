@@ -1,5 +1,6 @@
 package mli.interface
 
+import org.apache.spark
 import mli.interface.impl.SparkMLTable
 
 class MLContext(@transient val sc: spark.SparkContext) extends Serializable {

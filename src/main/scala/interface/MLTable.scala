@@ -3,9 +3,10 @@ package mli.interface
 import mli.interface.impl.SparkMLTable
 import mli.interface.MLTypes._
 
-import spark.{RDD, SparkContext}
+import org.apache.spark.SparkContext
+import org.apache.spark.rdd.RDD
 import SparkContext._
-import spark.mllib.regression.LabeledPoint
+import org.apache.spark.mllib.regression.LabeledPoint
 
 
 /**
@@ -150,7 +151,7 @@ trait MLTable {
 }
 
 object MLTable {
-  def apply(dat: spark.RDD[Array[Double]]) = SparkMLTable(dat)
+  def apply(dat: RDD[Array[Double]]) = SparkMLTable(dat)
 }
 
 

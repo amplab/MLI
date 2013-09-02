@@ -3,7 +3,7 @@ package mli.test.testsupport
 import org.scalatest.Suite
 import org.scalatest.BeforeAndAfterEach
 
-import spark.SparkContext
+import org.apache.spark.SparkContext
 
 // TODO: delete this file and use the version from Spark once SPARK-750 is fixed.
 

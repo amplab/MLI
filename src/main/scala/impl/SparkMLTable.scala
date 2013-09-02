@@ -3,12 +3,13 @@ package mli.interface.impl
 import mli.interface._
 import mli.impl.DenseMLMatrix
 import mli.interface.MLTypes._
-import spark.SparkContext
-import SparkContext._
-import spark.mllib.regression.LabeledPoint
+
+import org.apache.spark.rdd.RDD
+import org.apache.spark.SparkContext._
+import org.apache.spark.mllib.regression.LabeledPoint
 
 
-class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], inSchema: Option[Schema] = None) extends MLTable with Serializable {
+class SparkMLTable(@transient protected var rdd: RDD[MLRow], inSchema: Option[Schema] = None) extends MLTable with Serializable {
   lazy val numCols = rdd.first.size
 
   lazy val numRows = rdd.count
@@ -156,12 +157,12 @@ class SparkMLTable(@transient protected var rdd: spark.RDD[MLRow], inSchema: Opt
   /**
    * We support a toRDD operation here for interoperability with spark.
    */
-  def toRDD(targetCol: Index = 0): spark.RDD[LabeledPoint] = {
+  def toRDD(targetCol: Index = 0): RDD[LabeledPoint] = {
     val othercols = nonCols(Seq(targetCol), schema)
     rdd.map(r => LabeledPoint(r(targetCol).toNumber, r(othercols).toDoubleArray))
   }
 
-  def toMLRowRdd(): spark.RDD[MLRow] = rdd
+  def toMLRowRdd(): RDD[MLRow] = rdd
 
 
   /**
@@ -182,12 +183,12 @@ object SparkMLTable {
     DenseMLRow.fromSeq(mldArray)
   }
 
-  def apply(rdd: spark.RDD[Array[Double]]): SparkMLTable = {
+  def apply(rdd: RDD[Array[Double]]): SparkMLTable = {
     val mldRdd = rdd.map(row => MLRow.chooseRepresentation(row.map(MLValue(_))))
     new SparkMLTable(mldRdd)
   }
 
-  def fromMLRowRdd(rdd: spark.RDD[MLRow]): SparkMLTable = {
+  def fromMLRowRdd(rdd: RDD[MLRow]): SparkMLTable = {
     new SparkMLTable(rdd)
   }
 }
