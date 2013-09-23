@@ -154,6 +154,20 @@ class SparkMLTable(@transient protected var rdd: RDD[MLRow], inSchema: Option[Sc
 
   def take(count: Int) = rdd.take(count)
 
+
+  /**
+   * Sample the rows of the base table uniformly, with or without replacement.
+   *
+   * @param fraction Fraction of the records to sample.
+   * @param withReplacement Sample with or without replacement.
+   * @param seed Seed to use for random sampling.
+   * @return Subsampled MLTable.
+   */
+  def sample(fraction: Double, withReplacement: Boolean, seed: Int) = {
+    val newRdd = rdd.sample(withReplacement, fraction, seed)
+    new SparkMLTable(newRdd, tableSchema)
+  }
+
   /**
    * We support a toRDD operation here for interoperability with spark.
    */
@@ -161,6 +175,8 @@ class SparkMLTable(@transient protected var rdd: RDD[MLRow], inSchema: Option[Sc
     val othercols = nonCols(Seq(targetCol), schema)
     rdd.map(r => LabeledPoint(r(targetCol).toNumber, r(othercols).toDoubleArray))
   }
+
+  def toDoubleArrayRDD: RDD[Array[Double]] = rdd.map(r => r.toDoubleArray)
 
   def toMLRowRdd(): RDD[MLRow] = rdd
 

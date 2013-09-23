@@ -122,8 +122,12 @@ trait MLTable {
   def collect(): Seq[MLRow]
   def take(n: Int): Seq[MLRow]
 
+  //We also want to support sampling.
+  def sample(fraction: Double, withReplacement: Boolean = false, seed: Int = 42): MLTable
+
   //We support toRDD to for interoperability with Spark.
   def toRDD(targetCol: Index = 0): RDD[LabeledPoint]
+  def toDoubleArrayRDD(): RDD[Array[Double]]
 
   //Concrete methods provided by the interface below.
   def project(cols: => Seq[String]): MLTable = {
