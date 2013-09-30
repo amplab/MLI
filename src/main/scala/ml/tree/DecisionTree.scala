@@ -22,6 +22,7 @@ import org.apache.spark.mllib.regression.LabeledPoint
 import org.apache.spark.mllib.classification.ClassificationModel
 import org.apache.spark.SparkContext
 import org.apache.spark.util.StatCounter
+import org.apache.spark.Logging
 
 
 /*
@@ -106,7 +107,7 @@ class NodeModel(
 /*
  * Class used to store the prediction values at each node of the tree.
  */
-class Prediction(val prob: Double, val distribution: Map[Double, Double]) {
+class Prediction(val prob: Double, val distribution: Map[Double, Double]) extends Serializable	{
   override def toString = { "probability = " + prob + ", distribution = " + distribution }
 }
 
@@ -127,14 +128,14 @@ class SplitPredicate(val split: Split, lessThanEqualTo: Boolean = true) extends 
 /*
  * Class for building the Decision Tree model. Should be used for both classification and regression tree.
  */
-class DecisionTree(
+class DecisionTree (
   val input: RDD[(Double, Array[Double])], //input RDD
   val maxDepth: Int, // depth of the tree
   val numSplitPredicates: Int, // number of bins per features
   val fraction: Double, // fraction of the data to be used for performing quantile calculation
   val strategy: Strategy, // classification or regression
-  val impurity: Impurity,
-  val sparkContext : SparkContext) { // impurity calculation strategy (variance, gini, entropy, etc.)
+  val impurity: Impurity, // impurity calculation strategy (variance, gini, entropy, etc.)
+  val sparkContext : SparkContext) { 
 
   //Calculating length of the features
   val featureLength = input.first._2.length
@@ -502,83 +503,87 @@ object Variance extends Impurity {
   def calculate(c0: Double, c1: Double): Double = throw new OperationNotSupportedException("Variance.calculate")
 }
 
-object RegressionTreeRunner {
+object TreeRunner extends Logging {
+  val usage = """
+    Usage: DecisionTreeRunner <master>[slices] --strategy <Classification,Regression> --dataDirectory directory [--maxDepth num] [--impurity <Gini,Entropy,Variance>] [--samplingFractionForSplitCalculation num] 
+  """
+    
   def main(args: Array[String]) {
-    if (args.length == 0) {
-      System.err.println("Usage: SparkPi <master> [<slices>]")
-      System.exit(1)
-    }
+
+    if (args.length < 2) {
+		  System.err.println(usage)
+		  System.exit(1)
+	  }
+    
     /**START Experimental*/
     System.setProperty("spark.cores.max", "8")
     /**END Experimental*/
     val sc = new SparkContext(args(0), "Decision Tree Runner",
       System.getenv("SPARK_HOME"), Seq(System.getenv("SPARK_EXAMPLES_JAR")))
-    val data = TreeUtils.loadLabeledData(sc, args(1))
+
+
+    val arglist = args.toList.drop(1)
+    type OptionMap = Map[Symbol, Any]
+
+    def nextOption(map : OptionMap, list: List[String]) : OptionMap = {
+      def isSwitch(s : String) = (s(0) == '-')
+      list match {
+        case Nil => map
+        case "--strategy" :: string :: tail => nextOption(map ++ Map('strategy -> string), tail)
+        case "--dataDirectory" :: string :: tail => nextOption(map ++ Map('dataDirectory -> string), tail)
+        case "--impurity" :: string :: tail => nextOption(map ++ Map('impurity -> string), tail)
+        case "--maxDepth" :: string :: tail => nextOption(map ++ Map('maxDepth -> string), tail)
+        case "--samplingFractionForSplitCalculation" :: string :: tail => nextOption(map ++ Map('samplingFractionForSplitCalculation -> string), tail)
+        case string :: Nil =>  nextOption(map ++ Map('infile -> string), list.tail)
+        case option :: tail => println("Unknown option "+option) 
+                               exit(1) 
+      }
+    }
+    val options = nextOption(Map(),arglist)
+    println(options)
+    //TODO: Add check for acceptable string inputs
+    
+    val data = TreeUtils.loadLabeledData(sc, options.get('dataDirectory).get.toString)
+    val strategyStr = options.get('strategy).get.toString
+    val impurityStr = options.getOrElse('impurity,"Gini").toString
+    val impurity = {
+    	impurityStr match {
+    	  case "Gini" => Gini
+    	  case "Entropy" => Entropy
+    	  case "Variance" => Variance
+    	}
+    }
+    val maxDepth = options.getOrElse('maxDepth,"1").toString.toInt
+    val fraction = options.getOrElse('samplingFractionForSplitCalculation,"1.0").toString.toDouble
+    
     val tree = DecisionTree.train(
       input = data,
       numSplitPredicates = 1000,
-      strategy = new Strategy("Regression"),
-      impurity = Variance,
-      maxDepth = 1,
-      fraction = 1,
+      strategy = new Strategy(strategyStr),
+      impurity = impurity,
+      maxDepth = maxDepth,
+      fraction = fraction,
       sparkContext = sc)
     println(tree)
-    println(tree.get.isLeaf)
-    println("prediction = " + tree.get.predict(Array(1.0, 2.0)))
+    //println("prediction = " + tree.get.predict(Array(1.0, 2.0)))
+    
+    val trainingError = accuracyScore(tree, data)
+    print("accuracy score on training data = " + trainingError)
+    
   }
+  
+  def accuracyScore(tree : Option[ml.tree.NodeModel], data : RDD[(Double, Array[Double])]) : Double = {
+    if (tree.isEmpty) return 1
+    val correctCount = data.filter(y => tree.get.predict(y._2) == y._1).count()
+    val count = data.count()
+    print("correct count = " +  correctCount)
+    print("training data count = " + count)
+    correctCount.toDouble / count
+  }
+  
+    
 }
 
-object ClassificationGiniTreeRunner {
-  def main(args: Array[String]) {
-    if (args.length == 0) {
-      System.err.println("Usage: SparkPi <master> [<slices>]")
-      System.exit(1)
-    }
-    /**START Experimental*/
-    System.setProperty("spark.cores.max", "8")
-    /**END Experimental*/
-    val sc = new SparkContext(args(0), "Decision Tree Runner",
-      System.getenv("SPARK_HOME"), Seq(System.getenv("SPARK_EXAMPLES_JAR")))
-    val data = TreeUtils.loadLabeledData(sc, args(1))
-    val tree = DecisionTree.train(
-      input = data,
-      numSplitPredicates = 1000,
-      strategy = new Strategy("Classification"),
-      impurity = Gini,
-      maxDepth = 1,
-      fraction = 1,
-      sparkContext = sc)
-    println(tree)
-    println(tree.get.isLeaf)
-    println("prediction = " + tree.get.predict(Array(1.0, 2.0)))
-  }
-}
-
-object ClassificationEntropyTreeRunner {
-  def main(args: Array[String]) {
-    if (args.length == 0) {
-      System.err.println("Usage: SparkPi <master> [<slices>]")
-      System.exit(1)
-    }
-    /**START Experimental*/
-    System.setProperty("spark.cores.max", "8")
-    /**END Experimental*/
-    val sc = new SparkContext(args(0), "Decision Tree Runner",
-      System.getenv("SPARK_HOME"), Seq(System.getenv("SPARK_EXAMPLES_JAR")))
-    val data = TreeUtils.loadLabeledData(sc, args(1))
-    val tree = DecisionTree.train(
-      input = data,
-      numSplitPredicates = 1000,
-      strategy = new Strategy("Classification"),
-      impurity = Entropy,
-      maxDepth = 1,
-      fraction = 1,
-      sparkContext = sc)
-    println(tree)
-    println(tree.get.isLeaf)
-    println("prediction = " + tree.get.predict(Array(1.0, 2.0)))
-  }
-}
 
 /**
  * Helper methods to load and save data
@@ -598,9 +603,8 @@ object TreeUtils {
     sc.textFile(dir).map { line =>
       val parts = line.trim().split(",")
       val label = parts(0).toDouble
-      //val features = parts(1).trim().split(",").map(_.toDouble)
-      //val features = parts.slice(1,parts.length).map(_.toDouble)
-      val features = parts.slice(1, 3).map(_.toDouble)
+      val features = parts.slice(1,parts.length).map(_.toDouble)
+      //val features = parts.slice(1, 30).map(_.toDouble)
       (label, features)
     }
   }
