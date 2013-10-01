@@ -505,7 +505,7 @@ object Variance extends Impurity {
 
 object TreeRunner extends Logging {
   val usage = """
-    Usage: DecisionTreeRunner <master>[slices] --strategy <Classification,Regression> --dataDirectory directory [--maxDepth num] [--impurity <Gini,Entropy,Variance>] [--samplingFractionForSplitCalculation num] 
+    Usage: DecisionTreeRunner <master>[slices] --strategy <Classification,Regression> --trainDataDir path --testDataDir path [--maxDepth num] [--impurity <Gini,Entropy,Variance>] [--samplingFractionForSplitCalculation num] 
   """
     
   def main(args: Array[String]) {
@@ -530,7 +530,8 @@ object TreeRunner extends Logging {
       list match {
         case Nil => map
         case "--strategy" :: string :: tail => nextOption(map ++ Map('strategy -> string), tail)
-        case "--dataDirectory" :: string :: tail => nextOption(map ++ Map('dataDirectory -> string), tail)
+        case "--trainDataDir" :: string :: tail => nextOption(map ++ Map('trainDataDir -> string), tail)
+        case "--testDataDir" :: string :: tail => nextOption(map ++ Map('testDataDir -> string), tail)
         case "--impurity" :: string :: tail => nextOption(map ++ Map('impurity -> string), tail)
         case "--maxDepth" :: string :: tail => nextOption(map ++ Map('maxDepth -> string), tail)
         case "--samplingFractionForSplitCalculation" :: string :: tail => nextOption(map ++ Map('samplingFractionForSplitCalculation -> string), tail)
@@ -543,7 +544,7 @@ object TreeRunner extends Logging {
     println(options)
     //TODO: Add check for acceptable string inputs
     
-    val data = TreeUtils.loadLabeledData(sc, options.get('dataDirectory).get.toString)
+    val trainData = TreeUtils.loadLabeledData(sc, options.get('trainDataDir).get.toString)
     val strategyStr = options.get('strategy).get.toString
     val impurityStr = options.getOrElse('impurity,"Gini").toString
     val impurity = {
@@ -557,7 +558,7 @@ object TreeRunner extends Logging {
     val fraction = options.getOrElse('samplingFractionForSplitCalculation,"1.0").toString.toDouble
     
     val tree = DecisionTree.train(
-      input = data,
+      input = trainData,
       numSplitPredicates = 1000,
       strategy = new Strategy(strategyStr),
       impurity = impurity,
@@ -567,20 +568,35 @@ object TreeRunner extends Logging {
     println(tree)
     //println("prediction = " + tree.get.predict(Array(1.0, 2.0)))
     
-    val trainingError = accuracyScore(tree, data)
-    print("accuracy score on training data = " + trainingError)
+    val testData = TreeUtils.loadLabeledData(sc, options.get('testDataDir).get.toString)
+
+    
+    val testError = {
+      strategyStr match {
+        case "Classification" => accuracyScore(tree, testData)
+        case "Regression" => meanSquaredError(tree, testData)
+      }
+    }
+    print("error = " + testError)
     
   }
   
   def accuracyScore(tree : Option[ml.tree.NodeModel], data : RDD[(Double, Array[Double])]) : Double = {
-    if (tree.isEmpty) return 1
+    if (tree.isEmpty) return 1 //TODO: Throw exception
     val correctCount = data.filter(y => tree.get.predict(y._2) == y._1).count()
     val count = data.count()
     print("correct count = " +  correctCount)
     print("training data count = " + count)
     correctCount.toDouble / count
   }
-  
+
+  def meanSquaredError(tree : Option[ml.tree.NodeModel], data : RDD[(Double, Array[Double])]) : Double = {
+    if (tree.isEmpty) return 1 //TODO: Throw exception
+    val meanSumOfSquares = data.map(y => (tree.get.predict(y._2) - y._1)*(tree.get.predict(y._2) - y._1)).mean
+    print("meanSumOfSquares = " + meanSumOfSquares)
+    meanSumOfSquares
+  }
+
     
 }
 
