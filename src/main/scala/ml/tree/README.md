@@ -1,4 +1,4 @@
-#Tree design doc
+#Decision Tree
 Decision tree classifiers are both popular supervised learning algorithms and also building blocks for other ensemble learning algorithms such as random forests, boosting, etc. This document discusses its implementation in the Spark project.
 
 #Usage
@@ -9,3 +9,18 @@ DecisionTreeRunner <master>[slices] --strategy <Classification,Regression> --tra
 sbt/sbt "run-main ml.tree.TreeRunner local[2] --strategy Classification --trainDataDir ../train_data --testDataDir ../test_data --maxDepth 1 --impurity Gini --samplingFractionForSplitCalculation 1"
 
 This command will create a decision tree model using the training data in the *trainDataDir* and calculate test error using the data in the *testDataDir*. The mis-classification error is calculated for a Classification *strategy* and mean squared error is calculated for the Regression *strategy*.
+
+#Performance testing
+To be done
+
+#Improvements
+* Print to dot files
+* Unit tests
+* Change fractions to quantiles
+* Add logging
+* Move metrics to a different package
+
+#Extensions
+* Extremely randomized trees
+* Random forest
+* Boosting
