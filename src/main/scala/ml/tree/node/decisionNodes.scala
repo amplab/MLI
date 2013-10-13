@@ -13,19 +13,22 @@ abstract class DecisionNode(
                              val data: RDD[(Double, Array[Double])],
                              val depth: Int,
                              val splitPredicates: List[SplitPredicate],
-                             val nodeStats : NodeStats,
-                             val allSplits : Broadcast[Set[Split]],
-                             val impurity : Impurity,
+                             val nodeStats: NodeStats,
+                             val allSplits: Broadcast[Set[Split]],
+                             val impurity: Impurity,
                              val strategy: Strategy,
-                             val maxDepth : Int) extends Node {
+                             val maxDepth: Int) extends Node {
 
   //TODO: Change empty logic
   val splits = splitPredicates.map(x => x.split)
 
   //TODO: Think about the merits of doing BFS and removing the parents RDDs from memory instead of doing DFS like below.
   val (left, right, splitPredicate, isLeaf) = createLeftRightChild()
+
   override def toString() = "[" + left + "[" + this.splitPredicate + " prediction = " + this.prediction + "]" + right + "]"
-  def createNode(data: RDD[(Double, Array[Double])], depth: Int, splitPredicates: List[SplitPredicate], nodeStats : NodeStats): DecisionNode
+
+  def createNode(data: RDD[(Double, Array[Double])], depth: Int, splitPredicates: List[SplitPredicate], nodeStats: NodeStats): DecisionNode
+
   def createLeftRightChild(): (Node, Node, Option[SplitPredicate], Boolean) = {
     if (depth > maxDepth) {
       (new LeafNode(data), new LeafNode(data), None, true)
@@ -76,7 +79,9 @@ abstract class DecisionNode(
             split <- availableSplits.toSeq
             featureIndex = split.feature
             threshold = split.threshold
-          } yield { if (features(featureIndex) <= threshold) (split, "left", label) else (split, "right", label) }
+          } yield {
+            if (features(featureIndex) <= threshold) (split, "left", label) else (split, "right", label)
+          }
           leftOrRight
         }).map(k => (k, 1))
 
@@ -101,12 +106,17 @@ abstract class DecisionNode(
             split <- availableSplits.toSeq
             featureIndex = split.feature
             threshold = split.threshold
-          } yield {if (features(featureIndex) <= threshold) ((split, "left"), label) else ((split, "right"), label)}
+          } yield {
+            if (features(featureIndex) <= threshold) ((split, "left"), label) else ((split, "right"), label)
+          }
           leftOrRight
         })
 
         // Calculate variance for each split
-        val splitVariancePairs = splitWiseCalculations.groupByKey().map(x => x._1 -> calculateVarianceSize(x._2)).collect
+        val splitVariancePairs = splitWiseCalculations
+          .groupByKey()
+          .map(x => x._1 -> {val stat = StatCounter(x._2); (stat.mean, stat.variance, stat.count)})
+          .collect
         //Tuple array to map conversion
         val gainCalculations = scala.collection.immutable.Map(splitVariancePairs: _*)
 
@@ -116,7 +126,7 @@ abstract class DecisionNode(
         ) yield (split, gain, leftNodeStats, rightNodeStats)
 
         val split_gain = split_gain_list.reduce(compareRegressionPair(_, _))
-        (split_gain._1, split_gain._2,split_gain._3, split_gain._4)
+        (split_gain._1, split_gain._2, split_gain._3, split_gain._4)
       }
     }
   }
@@ -133,14 +143,14 @@ abstract class DecisionNode(
 /*
  * Top node for building a classification tree
  */
-class TopClassificationNode(input: RDD[(Double, Array[Double])], allSplits : Broadcast[Set[Split]], impurity : Impurity,strategy: Strategy, maxDepth : Int) extends ClassificationNode(input.cache, 0, List[SplitPredicate](), new NodeStats, allSplits, impurity, strategy, maxDepth) {
+class TopClassificationNode(input: RDD[(Double, Array[Double])], allSplits: Broadcast[Set[Split]], impurity: Impurity, strategy: Strategy, maxDepth: Int) extends ClassificationNode(input.cache, 0, List[SplitPredicate](), new NodeStats, allSplits, impurity, strategy, maxDepth) {
   override def toString() = "[" + left + "[" + "TopNode" + "]" + right + "]"
 }
 
 /*
  * Class for each node in the classification tree
  */
-class ClassificationNode(data: RDD[(Double, Array[Double])], depth: Int, splitPredicates: List[SplitPredicate], nodeStats : NodeStats, allSplits : Broadcast[Set[Split]], impurity : Impurity, strategy: Strategy, maxDepth : Int)
+class ClassificationNode(data: RDD[(Double, Array[Double])], depth: Int, splitPredicates: List[SplitPredicate], nodeStats: NodeStats, allSplits: Broadcast[Set[Split]], impurity: Impurity, strategy: Strategy, maxDepth: Int)
   extends DecisionNode(data, depth, splitPredicates, nodeStats, allSplits, impurity, strategy, maxDepth) {
 
   // Prediction at each classification node
@@ -152,7 +162,7 @@ class ClassificationNode(data: RDD[(Double, Array[Double])], depth: Int, splitPr
   }
 
   //Static factory method. Put it in a better location.
-  def createNode(anyData: RDD[(Double, Array[Double])], depth: Int, splitPredicates: List[SplitPredicate], nodeStats : NodeStats)
+  def createNode(anyData: RDD[(Double, Array[Double])], depth: Int, splitPredicates: List[SplitPredicate], nodeStats: NodeStats)
   = new ClassificationNode(anyData, depth, splitPredicates, nodeStats, allSplits, impurity, strategy, maxDepth)
 
 }
@@ -160,21 +170,21 @@ class ClassificationNode(data: RDD[(Double, Array[Double])], depth: Int, splitPr
 /*
  * Top node for building a regression tree
  */
-class TopRegressionNode(input: RDD[(Double, Array[Double])], nodeStats : NodeStats, allSplits : Broadcast[Set[Split]], impurity : Impurity,strategy: Strategy, maxDepth : Int) extends RegressionNode(input.cache, 0, List[SplitPredicate](), nodeStats, allSplits, impurity, strategy, maxDepth) {
+class TopRegressionNode(input: RDD[(Double, Array[Double])], nodeStats: NodeStats, allSplits: Broadcast[Set[Split]], impurity: Impurity, strategy: Strategy, maxDepth: Int) extends RegressionNode(input.cache, 0, List[SplitPredicate](), nodeStats, allSplits, impurity, strategy, maxDepth) {
   override def toString() = "[" + left + "[" + "TopNode" + "]" + right + "]"
 }
 
 /*
  * Class for each node in the regression tree
  */
-class RegressionNode(data: RDD[(Double, Array[Double])], depth: Int, splitPredicates: List[SplitPredicate], nodeStats : NodeStats, allSplits : Broadcast[Set[Split]], impurity : Impurity,strategy: Strategy, maxDepth : Int)
+class RegressionNode(data: RDD[(Double, Array[Double])], depth: Int, splitPredicates: List[SplitPredicate], nodeStats: NodeStats, allSplits: Broadcast[Set[Split]], impurity: Impurity, strategy: Strategy, maxDepth: Int)
   extends DecisionNode(data, depth, splitPredicates, nodeStats, allSplits, impurity, strategy, maxDepth) {
 
   // Prediction at each regression node
   val prediction: Prediction = new Prediction(data.map(_._1).mean, Map())
 
   //Static factory method. Put it in a better location.
-  def createNode(anyData: RDD[(Double, Array[Double])], depth: Int, splitPredicates: List[SplitPredicate], nodeStats : NodeStats)
+  def createNode(anyData: RDD[(Double, Array[Double])], depth: Int, splitPredicates: List[SplitPredicate], nodeStats: NodeStats)
   = new RegressionNode(anyData, depth, splitPredicates, nodeStats, allSplits, impurity, strategy, maxDepth)
 }
 
@@ -183,12 +193,19 @@ class RegressionNode(data: RDD[(Double, Array[Double])], depth: Int, splitPredic
  */
 class LeafNode(val data: RDD[(Double, Array[Double])]) extends Node {
   def isLeaf = true
+
   def left = throw new OperationNotSupportedException("EmptyNode.left")
+
   def right = throw new OperationNotSupportedException("EmptyNode.right")
+
   def depth = throw new OperationNotSupportedException("EmptyNode.depth")
+
   def splitPredicates = throw new OperationNotSupportedException("EmptyNode.splitPredicates")
+
   def splitPredicate = throw new OperationNotSupportedException("EmptyNode.splitPredicate")
+
   override def toString() = "Empty"
+
   val prediction: Prediction = {
     val countZero: Double = data.filter(x => (x._1 == 0.0)).count
     val countOne: Double = data.filter(x => (x._1 == 1.0)).count
