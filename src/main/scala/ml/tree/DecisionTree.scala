@@ -29,19 +29,26 @@ import org.apache.spark.Logging
  * Abstract Node class as a template for implementing various types of nodes in the decision tree.
  */
 abstract class Node {
+  
   //Method for checking whether the class has any left/right child nodes.
   def isLeaf: Boolean
+  
   //Left/Right child nodes
   def left: Node
   def right: Node
+  
   //Depth of the node from the top node
   def depth: Int
+  
   //RDD data as an input to the node
   def data: RDD[(Double, Array[Double])]
+  
   //List of split predicates applied to the base RDD thus far
   def splitPredicates: List[SplitPredicate]
+  
   // Split to arrive at the node
   def splitPredicate: Option[SplitPredicate]
+  
   //Extract model
   def extractModel: Option[NodeModel] = {
     //Add probability logic
@@ -51,6 +58,8 @@ abstract class Node {
       Some(new NodeModel(None, None, None, depth, isLeaf, Some(prediction)))
     }
   }
+  
+  //Prediction at the node
   def prediction: Prediction
 }
 
@@ -88,6 +97,7 @@ class NodeModel(
    * @return Int prediction from the trained model
    */
   def predict(testData: Array[Double]): Double = {
+    
     //TODO: Modify this logic to handle regression
     val pred = prediction.get
     if (this.isLeaf) {
@@ -255,8 +265,10 @@ class DecisionTree (
       val depth: Int, 
       val splitPredicates: List[SplitPredicate],
       val nodeStats : NodeStats) extends Node {
+    
     //TODO: Change empty logic
     val splits = splitPredicates.map(x => x.split)
+    
     //TODO: Think about the merits of doing BFS and removing the parents RDDs from memory instead of doing DFS like below.
     val (left, right, splitPredicate, isLeaf) = createLeftRightChild()
     override def toString() = "[" + left + "[" + this.splitPredicate + " prediction = " + this.prediction + "]" + right + "]"
@@ -286,6 +298,7 @@ class DecisionTree (
     }
 
     def findBestSplit(nodeStats: NodeStats): (Split, Double, NodeStats, NodeStats) = {
+      
       //TODO: Also remove splits that are subsets of previous splits
       val availableSplits = allSplits.value filterNot (split => splits contains split)
       println("availableSplit count " + availableSplits.size)
