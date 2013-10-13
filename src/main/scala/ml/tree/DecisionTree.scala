@@ -24,117 +24,11 @@ import org.apache.spark.SparkContext
 import org.apache.spark.util.StatCounter
 import org.apache.spark.Logging
 import ml.tree.impurity.{Variance, Entropy, Gini, Impurity}
+import ml.tree.node.{Prediction, NodeStats, NodeModel, Node}
+import ml.tree.strategy.Strategy
+import ml.tree.split.{SplitPredicate, Split}
+import org.apache.spark.broadcast.Broadcast
 
-
-/*
- * Abstract Node class as a template for implementing various types of nodes in the decision tree.
- */
-abstract class Node {
-  
-  //Method for checking whether the class has any left/right child nodes.
-  def isLeaf: Boolean
-  
-  //Left/Right child nodes
-  def left: Node
-  def right: Node
-  
-  //Depth of the node from the top node
-  def depth: Int
-  
-  //RDD data as an input to the node
-  def data: RDD[(Double, Array[Double])]
-  
-  //List of split predicates applied to the base RDD thus far
-  def splitPredicates: List[SplitPredicate]
-  
-  // Split to arrive at the node
-  def splitPredicate: Option[SplitPredicate]
-  
-  //Extract model
-  def extractModel: Option[NodeModel] = {
-    //Add probability logic
-    if (!splitPredicate.isEmpty) { Some(new NodeModel(splitPredicate, left.extractModel, right.extractModel, depth, isLeaf, Some(prediction))) }
-    else {
-      // Using -1 as depth
-      Some(new NodeModel(None, None, None, depth, isLeaf, Some(prediction)))
-    }
-  }
-  
-  //Prediction at the node
-  def prediction: Prediction
-}
-
-/**
- * The decision tree model class that
- */
-class NodeModel(
-  val splitPredicate: Option[SplitPredicate],
-  val trueNode: Option[NodeModel],
-  val falseNode: Option[NodeModel],
-  val depth: Int,
-  val isLeaf: Boolean,
-  val prediction: Option[Prediction]) extends ClassificationModel {
-
-  override def toString() = if (!splitPredicate.isEmpty) {
-    "[" + trueNode.get + "\n" + "[" + "depth = " + depth + ", split predicate = " + this.splitPredicate.get + ", predict = " + this.prediction + "]" + "]\n" + falseNode.get
-  } else {
-    "Leaf : " + "depth = " + depth + ", predict = " + prediction + ", isLeaf = " + isLeaf
-  }
-
-  /**
-   * Predict values for the given data set using the model trained.
-   *
-   * @param testData RDD representing data points to be predicted
-   * @return RDD[Int] where each entry contains the corresponding prediction
-   */
-  def predict(testData: RDD[Array[Double]]): RDD[Double] = {
-    testData.map { x => predict(x) }
-  }
-
-  /**
-   * Predict values for a single data point using the model trained.
-   *
-   * @param testData array representing a single data point
-   * @return Int prediction from the trained model
-   */
-  def predict(testData: Array[Double]): Double = {
-    
-    //TODO: Modify this logic to handle regression
-    val pred = prediction.get
-    if (this.isLeaf) {
-      if (pred.prob > 0.5) 1 else 0
-    } else {
-      val spPred = splitPredicate.get
-      if (testData(spPred.split.feature) <= spPred.split.threshold) {
-        trueNode.get.predict(testData)
-      } else {
-        falseNode.get.predict(testData)
-      }
-    }
-  }
-
-}
-
-/*
- * Class used to store the prediction values at each node of the tree.
- */
-class Prediction(val prob: Double, val distribution: Map[Double, Double]) extends Serializable	{
-  override def toString = { "probability = " + prob + ", distribution = " + distribution }
-}
-
-/*
- * Class for storing splits -- feature index and threshold
- */
-case class Split(val feature: Int, val threshold: Double) {
-  override def toString = "feature = " + feature + ", threshold = " + threshold
-}
-
-/*
- * Class for storing the split predicate.
- */
-class SplitPredicate(val split: Split, lessThanEqualTo: Boolean = true) extends Serializable {
-  override def toString = "split = " + split.toString + ", lessThan = " + lessThanEqualTo
-}
 
 /*
  * Class for building the Decision Tree model. Should be used for both classification and regression tree.
@@ -262,14 +156,14 @@ class DecisionTree (
   }
 
   abstract class DecisionNode(
-      val data: RDD[(Double, Array[Double])], 
-      val depth: Int, 
+      val data: RDD[(Double, Array[Double])],
+      val depth: Int,
       val splitPredicates: List[SplitPredicate],
       val nodeStats : NodeStats) extends Node {
-    
+
     //TODO: Change empty logic
     val splits = splitPredicates.map(x => x.split)
-    
+
     //TODO: Think about the merits of doing BFS and removing the parents RDDs from memory instead of doing DFS like below.
     val (left, right, splitPredicate, isLeaf) = createLeftRightChild()
     override def toString() = "[" + left + "[" + this.splitPredicate + " prediction = " + this.prediction + "]" + right + "]"
@@ -299,7 +193,7 @@ class DecisionTree (
     }
 
     def findBestSplit(nodeStats: NodeStats): (Split, Double, NodeStats, NodeStats) = {
-      
+
       //TODO: Also remove splits that are subsets of previous splits
       val availableSplits = allSplits.value filterNot (split => splits contains split)
       println("availableSplit count " + availableSplits.size)
@@ -307,7 +201,7 @@ class DecisionTree (
 
       strategy match {
         case Strategy("Classification") => {
-          
+
           val splitWiseCalculations = data.flatMap(sample => {
             val label = sample._1
             val features = sample._2
@@ -332,7 +226,7 @@ class DecisionTree (
 
         }
         case Strategy("Regression") => {
-          
+
           val splitWiseCalculations = data.flatMap(sample => {
             val label = sample._1
             val features = sample._2
@@ -343,22 +237,28 @@ class DecisionTree (
             } yield {if (features(featureIndex) <= threshold) ((split, "left"), label) else ((split, "right"), label)}
             leftOrRight
           })
-          
+
           // Calculate variance for each split
-          val splitVariancePairs = splitWiseCalculations.groupByKey().map(x => x._1 -> ParVariance.calculateVarianceSize(x._2)).collect
+          val splitVariancePairs = splitWiseCalculations.groupByKey().map(x => x._1 -> calculateVarianceSize(x._2)).collect
           //Tuple array to map conversion
           val gainCalculations = scala.collection.immutable.Map(splitVariancePairs: _*)
-          
+
           val split_gain_list = for (
             split <- availableSplits;
             (gain, leftNodeStats, rightNodeStats) = impurity.calculateRegressionGain(split, gainCalculations, nodeStats)
           ) yield (split, gain, leftNodeStats, rightNodeStats)
-          
+
           val split_gain = split_gain_list.reduce(compareRegressionPair(_, _))
           (split_gain._1, split_gain._2,split_gain._3, split_gain._4)
         }
       }
     }
+
+    def calculateVarianceSize(seq: Seq[Double]): (Double, Double, Long) = {
+      val stat = StatCounter(seq)
+      (stat.mean, stat.variance, stat.count)
+    }
+
 
   }
 
@@ -388,15 +288,6 @@ class DecisionTree (
 
 }
 
-object ParVariance extends Serializable {
-  
-    def calculateVarianceSize(seq: Seq[Double]): (Double, Double, Long) = {
-    val stat = StatCounter(seq)
-    (stat.mean, stat.variance, stat.count)
-  }
-
-}
-
 
 object DecisionTree {
   def train(
@@ -420,149 +311,9 @@ object DecisionTree {
   }
 }
 
-case class Strategy(val name: String)
-
-class NodeStats(
-  val gini: Option[Double] = None,
-  val entropy: Option[Double] = None,
-  val mean: Option[Double] = None,
-  val variance: Option[Double] = None,
-  val count: Option[Long] = None) extends Serializable{
-  override def toString = "variance = " + variance + "count = " + count + "mean = " + mean
-}
 
 
 
 
 
 
-
-
-object TreeRunner extends Logging {
-  val usage = """
-    Usage: DecisionTreeRunner <master>[slices] --strategy <Classification,Regression> --trainDataDir path --testDataDir path [--maxDepth num] [--impurity <Gini,Entropy,Variance>] [--samplingFractionForSplitCalculation num] 
-  """
-    
-  def main(args: Array[String]) {
-
-    if (args.length < 2) {
-		  System.err.println(usage)
-		  System.exit(1)
-	  }
-    
-    /**START Experimental*/
-    System.setProperty("spark.cores.max", "8")
-    /**END Experimental*/
-    val sc = new SparkContext(args(0), "Decision Tree Runner",
-      System.getenv("SPARK_HOME"), Seq(System.getenv("SPARK_EXAMPLES_JAR")))
-
-
-    val arglist = args.toList.drop(1)
-    type OptionMap = Map[Symbol, Any]
-
-    def nextOption(map : OptionMap, list: List[String]) : OptionMap = {
-      def isSwitch(s : String) = (s(0) == '-')
-      list match {
-        case Nil => map
-        case "--strategy" :: string :: tail => nextOption(map ++ Map('strategy -> string), tail)
-        case "--trainDataDir" :: string :: tail => nextOption(map ++ Map('trainDataDir -> string), tail)
-        case "--testDataDir" :: string :: tail => nextOption(map ++ Map('testDataDir -> string), tail)
-        case "--impurity" :: string :: tail => nextOption(map ++ Map('impurity -> string), tail)
-        case "--maxDepth" :: string :: tail => nextOption(map ++ Map('maxDepth -> string), tail)
-        case "--samplingFractionForSplitCalculation" :: string :: tail => nextOption(map ++ Map('samplingFractionForSplitCalculation -> string), tail)
-        case string :: Nil =>  nextOption(map ++ Map('infile -> string), list.tail)
-        case option :: tail => println("Unknown option "+option) 
-                               exit(1) 
-      }
-    }
-    val options = nextOption(Map(),arglist)
-    println(options)
-    //TODO: Add check for acceptable string inputs
-    
-    val trainData = TreeUtils.loadLabeledData(sc, options.get('trainDataDir).get.toString)
-    val strategyStr = options.get('strategy).get.toString
-    val impurityStr = options.getOrElse('impurity,"Gini").toString
-    val impurity = {
-    	impurityStr match {
-    	  case "Gini" => Gini
-    	  case "Entropy" => Entropy
-    	  case "Variance" => Variance
-    	}
-    }
-    val maxDepth = options.getOrElse('maxDepth,"1").toString.toInt
-    val fraction = options.getOrElse('samplingFractionForSplitCalculation,"1.0").toString.toDouble
-    
-    val tree = DecisionTree.train(
-      input = trainData,
-      numSplitPredicates = 1000,
-      strategy = new Strategy(strategyStr),
-      impurity = impurity,
-      maxDepth = maxDepth,
-      fraction = fraction,
-      sparkContext = sc)
-    println(tree)
-    //println("prediction = " + tree.get.predict(Array(1.0, 2.0)))
-    
-    val testData = TreeUtils.loadLabeledData(sc, options.get('testDataDir).get.toString)
-
-    
-    val testError = {
-      strategyStr match {
-        case "Classification" => accuracyScore(tree, testData)
-        case "Regression" => meanSquaredError(tree, testData)
-      }
-    }
-    print("error = " + testError)
-    
-  }
-  
-  def accuracyScore(tree : Option[ml.tree.NodeModel], data : RDD[(Double, Array[Double])]) : Double = {
-    if (tree.isEmpty) return 1 //TODO: Throw exception
-    val correctCount = data.filter(y => tree.get.predict(y._2) == y._1).count()
-    val count = data.count()
-    print("correct count = " +  correctCount)
-    print("training data count = " + count)
-    correctCount.toDouble / count
-  }
-
-  def meanSquaredError(tree : Option[ml.tree.NodeModel], data : RDD[(Double, Array[Double])]) : Double = {
-    if (tree.isEmpty) return 1 //TODO: Throw exception
-    val meanSumOfSquares = data.map(y => (tree.get.predict(y._2) - y._1)*(tree.get.predict(y._2) - y._1)).mean
-    print("meanSumOfSquares = " + meanSumOfSquares)
-    meanSumOfSquares
-  }
-
-    
-}
-
-
-/**
- * Helper methods to load and save data
- * Data format:
- * <l>, <f1> <f2> ...
- * where <f1>, <f2> are feature values in Double and <l> is the corresponding label as Double.
- */
-object TreeUtils {
-
-  /**
-   * @param sc SparkContext
-   * @param dir Directory to the input data files.
-   * @return An RDD of tuples. For each tuple, the first element is the label, and the second
-   *         element represents the feature values (an array of Double).
-   */
-  def loadLabeledData(sc: SparkContext, dir: String): RDD[(Double, Array[Double])] = {
-    sc.textFile(dir).map { line =>
-      val parts = line.trim().split(",")
-      val label = parts(0).toDouble
-      val features = parts.slice(1,parts.length).map(_.toDouble)
-      //val features = parts.slice(1, 30).map(_.toDouble)
-      (label, features)
-    }
-  }
-
-  def saveLabeledData(data: RDD[(Double, Array[Double])], dir: String) {
-    val dataStr = data.map(x => x._1 + "," + x._2.mkString(" "))
-    dataStr.saveAsTextFile(dir)
-  }
-
-}

@@ -1,6 +1,7 @@
 package ml.tree.impurity
 
-import ml.tree.{NodeStats, Split}
+import ml.tree.node.NodeStats
+import ml.tree.split.Split
 
 trait Impurity {
 
