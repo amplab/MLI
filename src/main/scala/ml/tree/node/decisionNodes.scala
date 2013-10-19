@@ -143,7 +143,7 @@ abstract class DecisionNode(
 /*
  * Top node for building a classification tree
  */
-class TopClassificationNode(input: RDD[(Double, Array[Double])], allSplits: Broadcast[Set[Split]], impurity: Impurity, strategy: Strategy, maxDepth: Int) extends ClassificationNode(input.cache, 0, List[SplitPredicate](), new NodeStats, allSplits, impurity, strategy, maxDepth) {
+class TopClassificationNode(input: RDD[(Double, Array[Double])], allSplits: Broadcast[Set[Split]], impurity: Impurity, strategy: Strategy, maxDepth: Int) extends ClassificationNode(input.cache, 1, List[SplitPredicate](), new NodeStats, allSplits, impurity, strategy, maxDepth) {
   override def toString() = "[" + left + "[" + "TopNode" + "]" + right + "]"
 }
 
@@ -170,7 +170,7 @@ class ClassificationNode(data: RDD[(Double, Array[Double])], depth: Int, splitPr
 /*
  * Top node for building a regression tree
  */
-class TopRegressionNode(input: RDD[(Double, Array[Double])], nodeStats: NodeStats, allSplits: Broadcast[Set[Split]], impurity: Impurity, strategy: Strategy, maxDepth: Int) extends RegressionNode(input.cache, 0, List[SplitPredicate](), nodeStats, allSplits, impurity, strategy, maxDepth) {
+class TopRegressionNode(input: RDD[(Double, Array[Double])], nodeStats: NodeStats, allSplits: Broadcast[Set[Split]], impurity: Impurity, strategy: Strategy, maxDepth: Int) extends RegressionNode(input.cache, 1, List[SplitPredicate](), nodeStats, allSplits, impurity, strategy, maxDepth) {
   override def toString() = "[" + left + "[" + "TopNode" + "]" + right + "]"
 }
 
