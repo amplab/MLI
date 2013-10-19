@@ -48,18 +48,21 @@ class DecisionTree (
   //Calculating length of the features
   val featureLength = input.first._2.length
   println("feature length = " + featureLength)
-  
+
   //Sampling a fraction of the input RDD
   val sampledData = input.sample(false, fraction, 42).cache()
-  
+  println("sampled data size for quantile calculation = " + sampledData.count)
+
   //Sorting the sampled data along each feature and storing it for quantile calculation
+  println("started sorting sampled data")
   val sortedSampledFeatures = {
-    val sortedFeatureArray = new Array[RDD[Double]](featureLength)
+    val sortedFeatureArray = new Array[Array[Double]](featureLength)
     0 until featureLength foreach {
-      i => sortedFeatureArray(i) = sampledData.map(x => x._2(i) -> None).sortByKey(true).map(_._1)
+      i => sortedFeatureArray(i) = sampledData.map(x => x._2(i) -> None).sortByKey(true).map(_._1).collect()
     }
     sortedFeatureArray
   }
+  println("finished sorting sampled data")
 
   val numSamples = sampledData.count
   println("num samples = " + numSamples)
@@ -68,11 +71,13 @@ class DecisionTree (
   val stride = scala.math.max(numSamples / numSplitPredicates, 1)
   println("stride = " + stride)
 
-    //Calculating all possible splits for the features
+  //Calculating all possible splits for the features
+  println("calculating all possible splits for features")
   val allSplitsList = for {
     featureIndex <- 0 until featureLength;
     index <- stride until numSamples - 1 by stride
   } yield createSplit(featureIndex, index)
+  println("finished calculating all possible splits for features")
 
   //Remove duplicate splits. Especially help for one-hot encoded categorical variables.
   val allSplits = sparkContext.broadcast(allSplitsList.toSet)
@@ -83,7 +88,7 @@ class DecisionTree (
    * Find the exact value using feature index and index into the sorted features
    */
   def valueAtRDDIndex(featuresIndex: Long, index: Long): Double = {
-    sortedSampledFeatures(featuresIndex.toInt).collect()(index.toInt)
+    sortedSampledFeatures(featuresIndex.toInt)(index.toInt)
   }
 
   /*
@@ -94,6 +99,9 @@ class DecisionTree (
   }
 
   def buildTree(): Node = {
+
+    println("building decision tree")
+
     strategy match {
       case Strategy("Classification") => new TopClassificationNode(input, allSplits, impurity, strategy, maxDepth)
       case Strategy("Regression")     => {
@@ -112,13 +120,13 @@ class DecisionTree (
 
 object DecisionTree {
   def train(
-    input: RDD[(Double, Array[Double])],
-    numSplitPredicates: Int,
-    strategy: Strategy,
-    impurity: Impurity, 
-    maxDepth : Int, 
-    fraction : Double,
-    sparkContext : SparkContext): Option[NodeModel] = {
+             input: RDD[(Double, Array[Double])],
+             numSplitPredicates: Int,
+             strategy: Strategy,
+             impurity: Impurity,
+             maxDepth : Int,
+             fraction : Double,
+             sparkContext : SparkContext): Option[NodeModel] = {
     new DecisionTree(
       input = input,
       numSplitPredicates = numSplitPredicates,
@@ -131,11 +139,3 @@ object DecisionTree {
       .extractModel
   }
 }
-
-
-
-
-
-
-
-
