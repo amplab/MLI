@@ -75,16 +75,17 @@ object TreeRunner extends Logging {
     println(tree)
     //println("prediction = " + tree.get.predict(Array(1.0, 2.0)))
 
+    println("loading test data")
     val testData = TreeUtils.loadLabeledData(sc, options.get('testDataDir).get.toString)
 
-
+    println("calculating performance of test data")
     val testError = {
       strategyStr match {
         case "Classification" => accuracyScore(tree, testData)
         case "Regression" => meanSquaredError(tree, testData)
       }
     }
-    print("error = " + testError)
+    println("error = " + testError)
 
   }
 

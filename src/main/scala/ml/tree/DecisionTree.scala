@@ -31,6 +31,10 @@ import scala.Some
 import ml.tree.strategy.Strategy
 import ml.tree.split.Split
 import ml.tree.node._
+import ml.tree.Metrics._
+import scala.Some
+import ml.tree.strategy.Strategy
+import ml.tree.split.Split
 
 
 /*
@@ -127,7 +131,7 @@ object DecisionTree {
              maxDepth : Int,
              fraction : Double,
              sparkContext : SparkContext): Option[NodeModel] = {
-    new DecisionTree(
+    val tree = new DecisionTree(
       input = input,
       numSplitPredicates = numSplitPredicates,
       strategy = strategy,
@@ -137,5 +141,16 @@ object DecisionTree {
       sparkContext = sparkContext)
       .buildTree
       .extractModel
+
+    println("calculating performance on training data")
+    val trainingError = {
+      strategy match {
+        case Strategy("Classification") => accuracyScore(tree, input)
+        case Strategy("Regression") => meanSquaredError(tree, input)
+      }
+    }
+    println("error = " + trainingError)
+
+    tree
   }
 }

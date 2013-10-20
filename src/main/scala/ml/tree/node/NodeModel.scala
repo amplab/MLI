@@ -3,6 +3,7 @@ package ml.tree.node
 import org.apache.spark.mllib.classification.ClassificationModel
 import org.apache.spark.rdd.RDD
 import ml.tree.split.SplitPredicate
+import ml.tree.Metrics._
 
 /**
  * The decision tree model class that

@@ -8,6 +8,10 @@ import ml.tree.impurity.Impurity
 import ml.tree.strategy.Strategy
 import org.apache.spark.util.StatCounter
 import javax.naming.OperationNotSupportedException
+import ml.tree.Metrics._
+import scala.Some
+import ml.tree.strategy.Strategy
+import ml.tree.split.Split
 
 abstract class DecisionNode(
                              val data: RDD[(Double, Array[Double])],
@@ -135,7 +139,6 @@ abstract class DecisionNode(
     val stat = StatCounter(seq)
     (stat.mean, stat.variance, stat.count)
   }
-
 
 }
 
