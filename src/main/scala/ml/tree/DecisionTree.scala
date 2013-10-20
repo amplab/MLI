@@ -149,7 +149,7 @@ object DecisionTree {
         case Strategy("Regression") => meanSquaredError(tree, input)
       }
     }
-    println("error = " + trainingError)
+    println("accuracy = " + trainingError)
 
     tree
   }

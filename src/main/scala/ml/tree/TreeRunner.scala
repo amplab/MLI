@@ -85,7 +85,7 @@ object TreeRunner extends Logging {
         case "Regression" => meanSquaredError(tree, testData)
       }
     }
-    println("error = " + testError)
+    println("accuracy = " + testError)
 
   }
 
