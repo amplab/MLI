@@ -1,6 +1,6 @@
 package mli.interface
 
-import mli.interface.impl.SparkMLTable
+import mli.interface.impl.{MLNumericTable, SparkMLTable}
 import mli.interface.MLTypes._
 
 import org.apache.spark.SparkContext
@@ -105,7 +105,7 @@ trait MLTable {
   def union(other: MLTable): MLTable
   def map(f: MLRow => MLRow): MLTable
   def mapReduce(m: MLRow => MLRow, r: (MLRow, MLRow) => MLRow ): MLRow
-  def matrixBatchMap(f: MLMatrix => MLMatrix): MLTable
+  def matrixBatchMap(f: LocalMatrix => LocalMatrix): MLTable
   def project(cols: Seq[Index]): MLTable
   def join(other: MLTable, cols: Seq[Index]): MLTable
   def flatMap(m: MLRow => TraversableOnce[MLRow]): MLTable
@@ -156,6 +156,7 @@ trait MLTable {
 
 object MLTable {
   def apply(dat: RDD[Array[Double]]) = SparkMLTable(dat)
+  implicit def toNumericTable(tab: MLTable) = MLNumericTable(tab.toDoubleArrayRDD())
 }
 
 

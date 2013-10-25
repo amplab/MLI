@@ -9,7 +9,7 @@ import org.apache.spark.SparkContext._
 import org.apache.spark.mllib.regression.LabeledPoint
 
 
-class SparkMLTable(@transient protected var rdd: RDD[MLRow], inSchema: Option[Schema] = None) extends MLTable with Serializable {
+class MLNumericTable(@transient protected var rdd: RDD[MLVector], inSchema: Option[Schema] = None) extends Serializable {
   lazy val numCols = rdd.first.size
 
   lazy val numRows = rdd.count
@@ -31,16 +31,16 @@ class SparkMLTable(@transient protected var rdd: RDD[MLRow], inSchema: Option[Sc
   /**
    * Return a new RDD containing only the elements that satisfy a predicate.
    */
-  def filter(f: MLRow => Boolean): SparkMLTable = new SparkMLTable(rdd.filter(f), tableSchema)
+  def filter(f: MLVector => Boolean): MLNumericTable = new MLNumericTable(rdd.filter(f), tableSchema)
 
   /**
    * Return the union of this RDD and another one. Any identical elements will appear multiple
    * times (use `.distinct()` to eliminate them). For now this only works to union a DenseSparkMLTable to another.
    */
-  def union(other: MLTable): SparkMLTable = this
-  def union(other: SparkMLTable): SparkMLTable = {
+  def union(other: MLTable): MLNumericTable = this
+  def union(other: MLNumericTable): MLNumericTable = {
     assert(schema == other.schema)
-    new SparkMLTable(rdd.union(other.rdd), Some(schema))
+    new MLNumericTable(rdd.union(other.rdd), Some(schema))
   }
 
   /**
@@ -53,34 +53,19 @@ class SparkMLTable(@transient protected var rdd: RDD[MLRow], inSchema: Option[Sc
 
   /**
    * Return the join of this table and another one. Any identical elements will appear multiple
-   * For now this only works to union a DenseSparkMLTable to another.
+   * For now this doesn't work.
    */
-  def join(other: MLTable, cols: Seq[Index]): SparkMLTable = this
-
-  def join(other: SparkMLTable, cols: Seq[Index]) = {
-
-    //Parse out the key columns from each table.
-    val t1 = rdd.map(row => (cols.map(row(_)), nonCols(cols, schema).map(row(_))))
-    val t2 = other.rdd.map(row => (cols.map(row(_)), nonCols(cols, other.schema).map(row(_))))
-
-    //Join the table, combine the rows, and create a new schema.
-    //val newRdd = t1.join(t2).map(k => MLRow(k._1 ++ k._2._1 ++ k._2._2))
-    val newRdd = t1.join(t2).map { case (a,(b,c)) => MLRow.chooseRepresentation(a ++ b ++ c)}
-    lazy val newSchema = schema.join(other.schema, cols)
-
-    new SparkMLTable(newRdd, Some(newSchema))
-
-  }
+  def join(other: MLTable, cols: Seq[Index]): MLNumericTable = this
 
 
   /**
    * Return a new RDD by applying a function to all elements of this RDD. Schema is inferred from the results.
    * User is expected to provide a map function which produces elements of a consistent schema as output.
    */
-  def map(f: MLRow => MLRow): SparkMLTable = {
+  def map(f: MLVector => MLVector): MLNumericTable = {
     val newRdd = rdd.map(f)
 
-    SparkMLTable.fromMLRowRdd(newRdd)
+    MLNumericTable.fromMLVectorRdd(newRdd)
   }
 
 
@@ -88,68 +73,68 @@ class SparkMLTable(@transient protected var rdd: RDD[MLRow], inSchema: Option[Sc
    *  Return a new RDD by first applying a function to all elements of this
    *  RDD, and then flattening the results.
    */
-  def flatMap(f: MLRow => TraversableOnce[MLRow]): SparkMLTable = new SparkMLTable(rdd.flatMap(f))
+  def flatMap(f: MLVector => TraversableOnce[MLVector]): MLNumericTable = new MLNumericTable(rdd.flatMap(f))
 
   /**
    *  Return a value by applying a reduce function to every element of the table.
    */
-  def reduce(f: (MLRow, MLRow) => MLRow): MLRow = rdd.reduce(f)
+  def reduce(f: (MLVector, MLVector) => MLVector): MLVector = rdd.reduce(f)
 
   /**
    *  Run a reduce on all values of the row, grouped by key.
    */
-  def reduceBy(key: Seq[Index], f: (MLRow, MLRow) => MLRow): MLTable = {
+  def reduceBy(key: Seq[Index], f: (MLVector, MLVector) => MLVector): MLNumericTable = {
     //val notKey = nonCols(key, schema)
     val newRdd = rdd.map(r => (r(key), r)).reduceByKey(f).map(_._2)
 
-    SparkMLTable.fromMLRowRdd(newRdd)
+    MLNumericTable.fromMLVectorRdd(newRdd)
   }
 
-  def pairToRow(p: (MLRow, MLRow)) = {
-    MLRow(p._1 ++ p._2)
+  def pairToRow(p: (MLVector, MLVector)) = {
+    MLVector(p._1 ++ p._2)
   }
 
   /**
    * Creates a new MLTable based on the cached version of the RDD.
    */
-  def cache() = new SparkMLTable(rdd.cache(), tableSchema)
+  def cache() = new MLNumericTable(rdd.cache(), tableSchema)
 
   /**
    * Sort a table based on a key.
    */
-  def sortBy(key: Seq[Index], ascending: Boolean = true): MLTable = {
+  def sortBy(key: Seq[Index], ascending: Boolean = true): MLNumericTable = {
     //val notKey = nonCols(key, schema)
     val newRdd = rdd.map(r => (r(key), r)).sortByKey(ascending).map(_._2)
-    new SparkMLTable(newRdd, tableSchema)
+    new MLNumericTable(newRdd, tableSchema)
   }
 
   /**
    * Return a value by applying a function to all elements of this the table and then reducing them.
    */
-  def mapReduce(f: MLRow => MLRow, sum: (MLRow, MLRow) => MLRow): MLRow = rdd.map(f).reduce(sum)
+  def mapReduce(f: MLVector => MLVector, sum: (MLVector, MLVector) => MLVector): MLVector = rdd.map(f).reduce(sum)
 
 
   /**
    * Return a new MLTable by applying a function to each partition of the table, treating that partition as a Matrix.
    * This enables block-wise computation with a more natural interface than vanilla mapPartitions.
    */
-  def matrixBatchMap(f: LocalMatrix => LocalMatrix): SparkMLTable = {
-//    def matrixMap(i: Iterator[MLRow]): Iterator[MLRow] = {
-//      val mat = DenseMLMatrix.fromVecs(i.map(_.toVector).toSeq)
-//      val res = f(mat)
-//      res.toMLRows
-//    }
-    def cachedMatrixMap(m: LocalMatrix): Iterator[MLRow] = f(m).toMLRows
+  def matrixBatchMap(f: LocalMatrix => LocalMatrix): MLNumericTable = {
+    //    def matrixMap(i: Iterator[MLVector]): Iterator[MLVector] = {
+    //      val mat = DenseMLMatrix.fromVecs(i.map(_.toVector).toSeq)
+    //      val res = f(mat)
+    //      res.toMLRows
+    //    }
+    def cachedMatrixMap(m: LocalMatrix): Iterator[MLVector] = f(m).toMLVectors
 
-    def createMatrix(i: Iterator[MLRow]): Iterator[LocalMatrix] = Iterator(DenseMLMatrix.fromVecs(i.map(_.toVector).toSeq))
+    def createMatrix(i: Iterator[MLVector]): Iterator[LocalMatrix] = Iterator(DenseMLMatrix.fromVecs(i.toSeq))
 
 
     cachedMat match {
       case None => {
         cachedMat = Some(rdd.mapPartitions(createMatrix(_)).cache())
-        SparkMLTable.fromMLRowRdd(cachedMat.get.flatMap(cachedMatrixMap(_)))
+        MLNumericTable.fromMLVectorRdd(cachedMat.get.flatMap(cachedMatrixMap(_)))
       }
-      case Some(value) => SparkMLTable.fromMLRowRdd(value.flatMap(cachedMatrixMap(_)))
+      case Some(value) => MLNumericTable.fromMLVectorRdd(value.flatMap(cachedMatrixMap(_)))
     }
 
     //SparkMLTable.fromMLRowRdd(cachedMat.map(cachedMatrixMap(_)))
@@ -163,7 +148,7 @@ class SparkMLTable(@transient protected var rdd: RDD[MLRow], inSchema: Option[Sc
    */
   def project(cols: Seq[Index]) = {
     //TODO - project should project schema as well.
-    map(row => MLRow.chooseRepresentation(cols.map(i => row(i)).toSeq))
+    map((row: MLVector) => MLVector(cols.map(i => row(i)).toSeq))
   }
 
 
@@ -180,7 +165,7 @@ class SparkMLTable(@transient protected var rdd: RDD[MLRow], inSchema: Option[Sc
    */
   def sample(fraction: Double, withReplacement: Boolean, seed: Int) = {
     val newRdd = rdd.sample(withReplacement, fraction, seed)
-    new SparkMLTable(newRdd, tableSchema)
+    new MLNumericTable(newRdd, tableSchema)
   }
 
   /**
@@ -188,12 +173,12 @@ class SparkMLTable(@transient protected var rdd: RDD[MLRow], inSchema: Option[Sc
    */
   def toRDD(targetCol: Index = 0): RDD[LabeledPoint] = {
     val othercols = nonCols(Seq(targetCol), schema)
-    rdd.map(r => LabeledPoint(r(targetCol).toNumber, r(othercols).toDoubleArray))
+    rdd.map(r => LabeledPoint(r(targetCol), r(othercols).toDoubleArray))
   }
 
   def toDoubleArrayRDD: RDD[Array[Double]] = rdd.map(r => r.toDoubleArray)
 
-  def toMLRowRdd(): RDD[MLRow] = rdd
+  def toMLVectorRdd(): RDD[MLVector] = rdd
 
 
   /**
@@ -206,20 +191,22 @@ class SparkMLTable(@transient protected var rdd: RDD[MLRow], inSchema: Option[Sc
   def print() = rdd.collect.foreach(row => println(row.mkString("\t")))
 
   def print(count: Int) = take(count).foreach(row => println(row.mkString("\t")))
+
+  def toMLTable = SparkMLTable.fromMLRowRdd(rdd.map(MLRow(_)))
 }
 
-object SparkMLTable {
-  def doubleArrayToMLRow(a: Array[Double]): MLRow = {
-    val mldArray = a.map(MLValue(_))
-    DenseMLRow.fromSeq(mldArray)
+object MLNumericTable {
+  def doubleArrayToMLVector(a: Array[Double]): MLVector = {
+    MLVector(a)
   }
 
-  def apply(rdd: RDD[Array[Double]]): SparkMLTable = {
-    val mldRdd = rdd.map(row => MLRow.chooseRepresentation(row.map(MLValue(_))))
-    new SparkMLTable(mldRdd)
+  def apply(rdd: RDD[Array[Double]]): MLNumericTable = {
+    val mldRdd = rdd.map(row => MLVector(row))
+    new MLNumericTable(mldRdd)
   }
 
-  def fromMLRowRdd(rdd: RDD[MLRow]): SparkMLTable = {
-    new SparkMLTable(rdd)
+  def fromMLVectorRdd(rdd: RDD[MLVector]): MLNumericTable = {
+    new MLNumericTable(rdd)
   }
+
 }

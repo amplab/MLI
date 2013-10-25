@@ -4,7 +4,7 @@ import mli.interface._
 import mli.interface.MLTypes._
 import org.jblas.{DoubleMatrix,Solve}
 
-class DenseMLMatrix(var mat: DoubleMatrix) extends MLMatrix {
+class DenseMLMatrix(var mat: DoubleMatrix) extends LocalMatrix {
 
   def toMLRows: Iterator[MLRow] = {
     (0 until numRows).map(r => DenseMLRow.fromSeq(mat.getRow(r).data.map(d => MLValue(d)).toSeq)).toIterator
@@ -18,10 +18,10 @@ class DenseMLMatrix(var mat: DoubleMatrix) extends MLMatrix {
   def numCols: Index = mat.columns
 
   def apply(r: Index, c: Index): Scalar = mat.get(r, c)
-  def apply(rows: Slice, cols: Slice): MLMatrix = new DenseMLMatrix(mat.get(cols.toArray, rows.toArray))
+  def apply(rows: Slice, cols: Slice): LocalMatrix = new DenseMLMatrix(mat.get(cols.toArray, rows.toArray))
 
   def update(r: Index, c: Index, v: Scalar) = mat.put(r, c, v)
-  def update(rows: Slice, cols: Slice, v: MLMatrix) = {
+  def update(rows: Slice, cols: Slice, v: LocalMatrix) = {
     //Jblas Matrices are row-major, so this shoudl be faster in the congiguous case.
     for (c <- cols) {
       for (r <- rows) {
@@ -30,18 +30,18 @@ class DenseMLMatrix(var mat: DoubleMatrix) extends MLMatrix {
     }
   }
 
-  def *(y: MLMatrix) = new DenseMLMatrix(mat.mul(y.mat))
-  def +(y: MLMatrix) = new DenseMLMatrix(mat.add(y.mat))
-  def -(y: MLMatrix) = new DenseMLMatrix(mat.sub(y.mat))
-  def /(y: MLMatrix) = new DenseMLMatrix(mat.div(y.mat))
+  def *(y: LocalMatrix) = new DenseMLMatrix(mat.mul(y.mat))
+  def +(y: LocalMatrix) = new DenseMLMatrix(mat.add(y.mat))
+  def -(y: LocalMatrix) = new DenseMLMatrix(mat.sub(y.mat))
+  def /(y: LocalMatrix) = new DenseMLMatrix(mat.div(y.mat))
 
   def *(y: Scalar) = new DenseMLMatrix(mat.mul(y))
   def +(y: Scalar) = new DenseMLMatrix(mat.add(y))
   def -(y: Scalar) = new DenseMLMatrix(mat.sub(y))
   def /(y: Scalar) = new DenseMLMatrix(mat.sub(y))
 
-  def solve(y: MLMatrix) = new DenseMLMatrix(Solve.solve(mat, y.mat))
-  def times(y: MLMatrix) = new DenseMLMatrix(mat.mmul(y.mat))
+  def solve(y: LocalMatrix) = new DenseMLMatrix(Solve.solve(mat, y.mat))
+  def times(y: LocalMatrix) = new DenseMLMatrix(mat.mmul(y.mat))
   def transpose = new DenseMLMatrix(mat.transpose())
 
   //TODO need to decide on types for these.
@@ -50,8 +50,8 @@ class DenseMLMatrix(var mat: DoubleMatrix) extends MLMatrix {
   //def svd = new DenseMLMatrix(breeze.linalg.svd(mat))
 
   //Composition
-  def on(y: DenseMLMatrix): MLMatrix = new DenseMLMatrix(DoubleMatrix.concatVertically(mat, y.mat))
-  def then(y: MLMatrix): MLMatrix = new DenseMLMatrix(DoubleMatrix.concatHorizontally(mat, y.mat))
+  def on(y: DenseMLMatrix): LocalMatrix = new DenseMLMatrix(DoubleMatrix.concatVertically(mat, y.mat))
+  def then(y: LocalMatrix): LocalMatrix = new DenseMLMatrix(DoubleMatrix.concatHorizontally(mat, y.mat))
 }
 
 /**

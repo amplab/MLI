@@ -34,8 +34,9 @@ class MLVector(val data: DoubleMatrix) extends IndexedSeq[Double] with Serializa
   def length = data.length
   def sum: Double = data.sum
 
-  def toMatrix: MLMatrix = new DenseMLMatrix(new DoubleMatrix(data.data).transpose)
+  def toMatrix: LocalMatrix = new DenseMLMatrix(new DoubleMatrix(data.data).transpose)
   def toArray = data.data
+  //val row = MLRow(this)
 }
 
 
@@ -48,5 +49,5 @@ object MLVector {
 
   //Returns a zero vector of length D.
   def zeros(d: Int): MLVector = apply(new Array[Double](d))
-  implicit def vectorToRow(from: MLVector): MLRow = MLRow(from)
+  implicit def vectorToRow(from: MLVector): MLRow = MLRow(from)//from.row
 }

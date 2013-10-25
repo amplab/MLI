@@ -1,5 +1,6 @@
 package mli.ml.classification
 
+import mli.interface.impl.MLNumericTable
 import mli.ml._
 import scala.math
 import mli.interface._
@@ -8,12 +9,12 @@ class LogisticRegressionModel(
     trainingTbl: MLTable,
     trainingParams: LogisticRegressionParameters,
     trainingTime: Long,
-    val weights: MLRow)
-  extends Model[LogisticRegressionParameters](trainingTbl, trainingTime, trainingParams) {
+    val weights: MLVector)
+  extends NumericModel[LogisticRegressionParameters](trainingTbl, trainingTime, trainingParams) {
 
 
   /* Predicts the label of a given data point. */
-  def predict(x: MLRow) : MLValue = {
+  def predict(x: MLVector) : MLValue = {
     MLValue(LogisticRegressionAlgorithm.sigmoid(weights dot x))
   }
 
@@ -34,13 +35,13 @@ case class LogisticRegressionParameters(
   extends AlgorithmParameters
 
 
-object LogisticRegressionAlgorithm extends Algorithm[LogisticRegressionParameters] {
+object LogisticRegressionAlgorithm extends NumericAlgorithm[LogisticRegressionParameters] {
 
   def defaultParameters() = LogisticRegressionParameters()
 
   def sigmoid(z: Double): Double = 1.0/(1.0 + math.exp(-1.0*z))
 
-  def train(data: MLTable, params: LogisticRegressionParameters): LogisticRegressionModel = {
+  def train(data: MLNumericTable, params: LogisticRegressionParameters): LogisticRegressionModel = {
 
     // Initialization
     assert(data.numRows > 0)
@@ -48,10 +49,10 @@ object LogisticRegressionAlgorithm extends Algorithm[LogisticRegressionParameter
 
     val d = data.numCols-1
 
-    def gradient(row: MLRow, w: MLRow): MLRow = {
+    def gradient(vec: MLVector, w: MLVector): MLVector = {
 
-      val x = MLVector(row.slice(1,row.length))
-      val y = row(0).toNumber
+      val x = MLVector(vec.slice(1,vec.length))
+      val y = vec(0)
       val g = x times (sigmoid(x dot w) - y)
       g
     }
@@ -64,6 +65,7 @@ object LogisticRegressionAlgorithm extends Algorithm[LogisticRegressionParameter
         val optParams = opt.GradientDescentParameters(MLVector.zeros(d), gradient, params.minLossDelta)
         opt.GradientDescent(data, optParams)
       }
+
       case "SGD" => {
         val optParams = opt.StochasticGradientDescentParameters(
           wInit = MLVector.zeros(d),
@@ -75,9 +77,8 @@ object LogisticRegressionAlgorithm extends Algorithm[LogisticRegressionParameter
 
     val trainTime =  System.currentTimeMillis - startTime
 
-    new LogisticRegressionModel(data, params, trainTime, weights)
+    new LogisticRegressionModel(data.toMLTable, params, trainTime, weights)
   }
-
 }
 
 
