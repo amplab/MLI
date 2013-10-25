@@ -38,7 +38,7 @@ class DenseMLMatrix(var mat: DoubleMatrix) extends LocalMatrix {
   def *(y: Scalar) = new DenseMLMatrix(mat.mul(y))
   def +(y: Scalar) = new DenseMLMatrix(mat.add(y))
   def -(y: Scalar) = new DenseMLMatrix(mat.sub(y))
-  def /(y: Scalar) = new DenseMLMatrix(mat.sub(y))
+  def /(y: Scalar) = new DenseMLMatrix(mat.div(y))
 
   def solve(y: LocalMatrix) = new DenseMLMatrix(Solve.solve(mat, y.mat))
   def times(y: LocalMatrix) = new DenseMLMatrix(mat.mmul(y.mat))
