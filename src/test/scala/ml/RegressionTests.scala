@@ -39,6 +39,8 @@ class RegressionTests extends FunSuite with BeforeAndAfter with LocalSparkContex
     println("\t Learned model: ")
     println(model.wOpt)    
     */
+
+    sc.stop()
   }
 
 
