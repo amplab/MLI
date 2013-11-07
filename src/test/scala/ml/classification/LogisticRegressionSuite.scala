@@ -27,7 +27,6 @@ class LogisticRegressionSuite extends FunSuite with LocalSparkContext {
     x = model.predict(MLVector(Array(0.0,0.0))).toNumber
     println("Model prediction for (-1.0,0.0): " + x)
     assert(x <= 0.5)
-    sc.stop()
   }
 
   test("Basic test of logistic regression via Parallel Gradient") {
@@ -40,7 +39,6 @@ class LogisticRegressionSuite extends FunSuite with LocalSparkContext {
 
     println(model.explain)
     assert(true)
-    sc.stop()
   }
 
 }
