@@ -2,8 +2,23 @@ package mli.interface
 
 import org.apache.spark
 import mli.interface.impl.SparkMLTable
+import org.apache.spark.broadcast.Broadcast
 
 class MLContext(@transient val sc: spark.SparkContext) extends Serializable {
+
+  /**
+   * Stop the MLContext
+   */
+  def stop(): Unit = sc.stop()
+
+
+  /**
+   * Sends a value to all workers. Workers can use the return value to access these values locally.
+   * @tparam T type of broadcast variable.
+   * @return Broadcast a read-only variable to the cluster, returning a Broadcast object for reading it
+   *         in distributed functions. The variable will be sent to each cluster only once.
+   */
+  def broadcast[T](value: T): Broadcast[T] = sc.broadcast(value)
 
   /**
    *
