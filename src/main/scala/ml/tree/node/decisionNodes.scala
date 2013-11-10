@@ -12,6 +12,7 @@ import ml.tree.Metrics._
 import scala.Some
 import ml.tree.strategy.Strategy
 import ml.tree.split.Split
+import scala.collection.mutable
 
 abstract class DecisionNode(
                              val data: RDD[(Double, Array[Double])],
@@ -76,25 +77,52 @@ abstract class DecisionNode(
     strategy match {
       case Strategy("Classification") => {
 
-        val splitWiseCalculations = data.flatMap(sample => {
-          val label = sample._1
-          val features = sample._2
-          val leftOrRight = for {
-            split <- availableSplits.toSeq
-            featureIndex = split.feature
-            threshold = split.threshold
-          } yield {
-            if (features(featureIndex) <= threshold) (split, "left", label) else (split, "right", label)
+        //Write a function that takes an RDD and list of splits
+        //and returns a map of (split, <left/right>, label) -> count
+
+        val splits = availableSplits.toSeq
+
+        //Modify numLabels to support multiple classes in the future
+        val numLabels = 2
+        val numChildren = 2
+        val lenSplits = splits.length
+        val outputVectorLength = numLabels * numChildren * lenSplits
+        val vecToVec : RDD[Array[Long]] = data.map(
+          sample => {
+            val storage : Array[Long] = new Array[Long](outputVectorLength)
+            val label = sample._1
+            val features = sample._2
+            splits.zipWithIndex.foreach{case (split, i) =>
+              val featureIndex = split.feature
+              val threshold = split.threshold
+              if (features(featureIndex) <= threshold) { //left node
+                val index = i*(numLabels*numChildren) + label.toInt
+                storage(index) = 1
+              } else{ //right node
+                val index = i*(numLabels*numChildren) + numLabels + label.toInt
+                storage(index) = 1
+              }
+            }
+            storage
           }
-          leftOrRight
-        }).map(k => (k, 1))
+        )
 
-        val gainCalculations = splitWiseCalculations.countByKey()
-          .toMap //TODO: Hack to go from mutable to immutable map. Clean this up if needed.
+        val countVecToVec : Array[Long] = vecToVec.reduce((a1,a2) => NodeHelper.sumTwoArrays(a1,a2))
 
+        //TOOD: Unnecessary step. Use indices directly instead of creating a map. Not a big hit in performance. Optimize later.
+        var newGainCalculations = Map[(Split,String,Double),Long]()
+        splits.zipWithIndex.foreach{case(split,i) =>
+            newGainCalculations += ((split,"left",0.0) -> countVecToVec(i*(numLabels*numChildren) + 0))
+            newGainCalculations += ((split,"left",1.0) -> countVecToVec(i*(numLabels*numChildren) + 1))
+            newGainCalculations += ((split,"right",0.0) -> countVecToVec(i*(numLabels*numChildren) + numLabels + 0))
+            newGainCalculations += ((split,"right",1.0) -> countVecToVec(i*(numLabels*numChildren) + numLabels + 1))
+         }
+
+        //TODO: Vectorize this operation as well
         val split_gain_list = for (
           split <- availableSplits;
-          gain = impurity.calculateClassificationGain(split, gainCalculations)
+          //gain = impurity.calculateClassificationGain(split, gainCalculations)
+          gain = impurity.calculateClassificationGain(split, newGainCalculations)
         ) yield (split, gain)
 
         val split_gain = split_gain_list.reduce(comparePair(_, _))
@@ -215,6 +243,17 @@ class LeafNode(val data: RDD[(Double, Array[Double])]) extends Node {
     val countTotal: Double = countZero + countOne
     new Prediction(countOne / countTotal, Map(0.0 -> countZero, 1.0 -> countOne))
   }
+}
+
+object NodeHelper extends Serializable {
+
+  //There definitely has to be a library function to do this!
+  def sumTwoArrays(a1 : Array[Long], a2 : Array[Long]) : Array[Long] = {
+    val storage = new Array[Long](a1.length)
+    for (i <- 0 until a1.length){storage(i) = a1(i) + a2(i)}
+    storage
+  }
+
 }
 
 
