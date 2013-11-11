@@ -87,9 +87,9 @@ abstract class DecisionNode(
         val numChildren = 2
         val lenSplits = splits.length
         val outputVectorLength = numLabels * numChildren * lenSplits
-        val vecToVec : RDD[Array[Long]] = data.map(
+        val vecToVec : RDD[Array[Int]] = data.map(
           sample => {
-            val storage : Array[Long] = new Array[Long](outputVectorLength)
+            val storage : Array[Int] = new Array[Int](outputVectorLength)
             val label = sample._1
             val features = sample._2
             splits.zipWithIndex.foreach{case (split, i) =>
@@ -107,7 +107,10 @@ abstract class DecisionNode(
           }
         )
 
-        val countVecToVec : Array[Long] = vecToVec.reduce((a1,a2) => NodeHelper.sumTwoArrays(a1,a2))
+        //val countVecToVec : Array[Long] = vecToVec.reduce((a1,a2) => NodeHelper.sumTwoArrays(a1,a2))
+        val countVecToVec : Array[Long] =
+          vecToVec.aggregate(new Array[Long](outputVectorLength))(NodeHelper.sumLongIntArrays,NodeHelper.sumTwoLongArrays)
+
 
         //TOOD: Unnecessary step. Use indices directly instead of creating a map. Not a big hit in performance. Optimize later.
         var newGainCalculations = Map[(Split,String,Double),Long]()
@@ -118,7 +121,6 @@ abstract class DecisionNode(
             newGainCalculations += ((split,"right",1.0) -> countVecToVec(i*(numLabels*numChildren) + numLabels + 1))
          }
 
-        //TODO: Vectorize this operation as well
         val split_gain_list = for (
           split <- availableSplits;
           //gain = impurity.calculateClassificationGain(split, gainCalculations)
@@ -174,7 +176,8 @@ abstract class DecisionNode(
 /*
  * Top node for building a classification tree
  */
-class TopClassificationNode(input: RDD[(Double, Array[Double])], allSplits: Broadcast[Set[Split]], impurity: Impurity, strategy: Strategy, maxDepth: Int) extends ClassificationNode(input.cache, 1, List[SplitPredicate](), new NodeStats, allSplits, impurity, strategy, maxDepth) {
+class TopClassificationNode(input: RDD[(Double, Array[Double])], allSplits: Broadcast[Set[Split]], impurity: Impurity, strategy: Strategy, maxDepth: Int)
+  extends ClassificationNode(input.cache, 1, List[SplitPredicate](), new NodeStats, allSplits, impurity, strategy, maxDepth) {
   override def toString() = "[" + left + "[" + "TopNode" + "]" + right + "]"
 }
 
@@ -201,7 +204,8 @@ class ClassificationNode(data: RDD[(Double, Array[Double])], depth: Int, splitPr
 /*
  * Top node for building a regression tree
  */
-class TopRegressionNode(input: RDD[(Double, Array[Double])], nodeStats: NodeStats, allSplits: Broadcast[Set[Split]], impurity: Impurity, strategy: Strategy, maxDepth: Int) extends RegressionNode(input.cache, 1, List[SplitPredicate](), nodeStats, allSplits, impurity, strategy, maxDepth) {
+class TopRegressionNode(input: RDD[(Double, Array[Double])], nodeStats: NodeStats, allSplits: Broadcast[Set[Split]], impurity: Impurity, strategy: Strategy, maxDepth: Int)
+  extends RegressionNode(input.cache, 1, List[SplitPredicate](), nodeStats, allSplits, impurity, strategy, maxDepth) {
   override def toString() = "[" + left + "[" + "TopNode" + "]" + right + "]"
 }
 
@@ -248,7 +252,14 @@ class LeafNode(val data: RDD[(Double, Array[Double])]) extends Node {
 object NodeHelper extends Serializable {
 
   //There definitely has to be a library function to do this!
-  def sumTwoArrays(a1 : Array[Long], a2 : Array[Long]) : Array[Long] = {
+  def sumTwoLongArrays(a1 : Array[Long], a2 : Array[Long]) : Array[Long] = {
+    val storage = new Array[Long](a1.length)
+    for (i <- 0 until a1.length){storage(i) = a1(i) + a2(i)}
+    storage
+  }
+
+  //There definitely has to be a library function to do this!
+  def sumLongIntArrays(a1 : Array[Long], a2 : Array[Int]) : Array[Long] = {
     val storage = new Array[Long](a1.length)
     for (i <- 0 until a1.length){storage(i) = a1(i) + a2(i)}
     storage
